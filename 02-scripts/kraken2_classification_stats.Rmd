@@ -1,0 +1,189 @@
+---
+title: "Industrial plaque Strep clade distributions"
+author: "Irina Velsko"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output:
+    github_document:
+        fig_width: 8
+        fig_height: 6
+        toc: true
+---
+
+```{r load_libraries, echo = F, message = F}
+library(knitr)
+library(data.table)
+library(janitor)
+library(tidyverse)
+library(patchwork)
+opts_chunk$set(echo=F, warning=F, message=F, dpi=150)
+```
+
+Set the working directory of the notebook to the parent directory of the 
+notebook itself.  
+
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+
+```{r}
+# set colors to resemble James' figure
+
+clade_colors <- c("Sanguinis" = "#a50026",
+                  "Mitis" = "#d73027",
+                  "Salivarius" = "#f46d43",
+                  "Anginosus" = "#fee090",
+                  "Bovis" = "#abd9e9",
+                  "Pyogenic" = "#74add1",
+                  "Mutans" = "#4575b4",
+                  "Oral_other" = "#313695",
+                  "Other" = "#4d4d4d",
+                  "Unknown" = "#e0e0e0")
+
+genus_colors <- c("Streptococcus" = "#a50026", "Other" = "#e0e0e0")
+
+```
+
+
+```{r metadata}
+
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  select(matches("Study|Sample|accession")) %>%
+  # keep in bones and blanks to be able to filter them out of the kraken stats table
+    # filter(!str_detect(Sample_type, "blank|Bone")) %>%
+  mutate(Secondary_sample_accession = ifelse(Study == "Velsko2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2023", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "FellowsYates2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Clemente2015", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Lassalle2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Brealey2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eerkens2018", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eisenhoffer2020", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Fagernaes2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Granehaell2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Jacobson2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ozga2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Weyrich2017", Run_accession,Secondary_sample_accession),
+          Secondary_sample_accession = ifelse(Study == "Asangba2022", Run_accession,Secondary_sample_accession),
+        Secondary_sample_accession = ifelse(Study == "Neukamm2020", Sample_alias,Secondary_sample_accession)) %>%
+  mutate(Full = ifelse(Study == "Clemente2015","Buccal mucosa - Non-industrial",
+                       ifelse(Study == "Lassalle2017","Saliva - Non-industrial",
+                              ifelse(Study == "Velsko2023", "Plaque - Non-industrial",
+                                     ifelse(Study == "Velsko2018","Calculus - Industrial",
+                                            ifelse(Study == "FellowsYates2021","Calculus - Industrial","Industrial")))))) %>%
+  mutate(Full = ifelse(Study == "HMP2012" & str_detect(Sample_type, "plaque"),"Plaque - Industrial",
+                       ifelse(Study == "HMP2012" & Sample_type == "saliva","Saliva - Industrial",
+                              ifelse(Study  ==  "HMP2012" & Sample_type == "buccal_mucosa","Buccal mucosa - Industrial",
+                                     ifelse(Study ==  "Brito2016","Saliva - Non-industrial",Full))))) %>%
+  mutate(Secondary_sample_accession = ifelse(is.na(Secondary_sample_accession) & Sample_group == "ancient_calculus",Sample_alias, Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(is.na(Secondary_sample_accession) & Sample_group == "non_human_primate",Sample_alias, Secondary_sample_accession)) %>%
+  mutate(Full = ifelse(Sample_type == "oral_swab" & Sample_group == "non_human_primate","NHP oral swab",Full),
+         Full = ifelse(Sample_type == "calculus" & Sample_group == "ancient_calculus","Calculus - Ancient",Full),
+         Full = ifelse(Sample_type == "calculus" & Sample_group == "non_human_primate","Calculus (NHP) - Ancient",Full))
+
+  
+lib_metadata <- lib_metadata %>% 
+  mutate(Full = fct_relevel(Full, "Calculus - Ancient", "Calculus - Industrial","Plaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial", "NHP oral swab", "Calculus (NHP) - Ancient"))
+
+```
+
+
+## Kraken2 GTDB r202 read classification table
+```{r load_data}
+# read in poor samples determined by cuperdec
+poor_samples <- fread("./05-results/cuperdec_anc_calc_poor_samples.tsv") %>%
+  bind_rows(., fread("./05-results/cuperdec_primate_oral_poor_samples.tsv")) %>%
+  bind_rows(., fread("./05-results/cuperdec_ind_sal_poor_samples.tsv")) %>%
+  rename(Secondary_sample_accession = 1)
+  # pull(Sample)
+
+# read in the kraken2 read classification table
+kraken2_stats <- fread("./05-results/kraken_read_classification_stats.tsv") %>%
+  # anti_join(., poor_samples, by = "Secondary_sample_accession")
+  mutate(Total_reads = Classified + Unclassified,
+         Percent_cl = Classified / (Classified + Unclassified) * 100) %>%
+  mutate(Secondary_sample_accession = ifelse(str_detect(Secondary_sample_accession, "CMC0"),str_replace_all(Secondary_sample_accession, ".SG1",""),Secondary_sample_accession))
+
+
+```
+
+
+```{r classified}
+kraken2_class <- kraken2_stats %>%
+  mutate(Secondary_sample_accession = str_replace_all(Secondary_sample_accession, ".SG1","")) %>%
+  left_join(., lib_metadata %>% select(Secondary_sample_accession, Study, Full, Sample_type), by = "Secondary_sample_accession") %>%
+  filter(!str_detect(Sample_type, "bone|Blank")) %>%
+  select(-Sample_type) %>%
+  distinct() %>%
+  filter(Full != "Industrial") %>%
+  ggplot(., aes(x = Study, y = Percent_cl, fill = Full)) +
+         geom_boxplot() +
+         geom_jitter(alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         #scale_y_continuous(trans='log10') +
+         #scale_y_continuous(trans='pseudo_log') +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+         ylab("Classified reads (%)") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+kraken2_class
+
+```
+
+```{r total}
+kraken2_total <- kraken2_stats %>%
+  mutate(Secondary_sample_accession = str_replace_all(Secondary_sample_accession, ".SG1","")) %>%
+  left_join(., lib_metadata %>% select(Secondary_sample_accession, Study, Full, Sample_type), by = "Secondary_sample_accession") %>%
+  filter(!str_detect(Sample_type, "bone|Blank")) %>%
+  select(-Sample_type) %>%
+  distinct() %>%
+  filter(Full != "Industrial") %>%
+  mutate(Reads = Total_reads / 1000000) %>%
+  ggplot(., aes(x = Study, y = Reads, fill = Full)) +
+         geom_boxplot() +
+         geom_jitter(alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         # scale_y_continuous(trans='log10') +
+         # scale_y_continuous(trans='pseudo_log', breaks=scales::pretty_breaks(n=8)) +
+         scale_y_continuous(trans='pseudo_log', breaks=c(1,5,10,20,50,100,200,400,600)) +
+         theme(axis.text.x = element_blank()) +
+         ylab("Total reads (x10^6)") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+
+kraken2_total
+
+
+```
+
+```{r triplot}
+kraken_plots <- kraken2_total / kraken2_class +
+  plot_layout(heights = c(1.1,1)) +
+  plot_layout(guides = 'collect')
+
+kraken_plots
+
+ggsave("./06-publication/supplemental_figures/Sup_fig_S1/kraken_classification_stats.pdf", plot = kraken_plots, device = "pdf",
+       scale = 1, width = 12, height = 8, units = c("in"), dpi = 300)
+
+ggsave("./06-publication/supplemental_figures/Sup_fig_S1/kraken_classification_stats.png", plot = kraken_plots, device = "png",
+       scale = 1, width = 12, height = 8, units = c("in"), dpi = 300)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

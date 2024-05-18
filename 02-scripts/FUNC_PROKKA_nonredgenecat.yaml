@@ -1,0 +1,13 @@
+name: Nonred_genecatalogue
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - prokka
+  - pigz
+  - cd-hit
+  - bowtie2
+  - bioawk
+  - samtools
+  - sambamba

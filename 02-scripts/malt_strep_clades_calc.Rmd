@@ -1,0 +1,650 @@
+---
+title: "DeepEvo dataset Strep clade distributions - MALT customRefSeq vs Kraken2 GTDBr202"
+author: "Irina Velsko"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output:
+    github_document:
+        fig_width: 8
+        fig_height: 6
+        toc: true
+---
+
+```{r load_libraries, echo = F, message = F}
+library(knitr)
+library(data.table)
+library(janitor)
+library(tidyverse)
+library(patchwork)
+opts_chunk$set(echo=F, warning=F, message=F, dpi=150)
+```
+
+Set the working directory of the notebook to the parent directory of the 
+notebook itself.  
+
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+```{r ncbi_strep_clades}
+#need this for MALT tables 
+strep_groups <- fread("./00-documentation/dRep_strep_groups.tsv") %>%
+  # remove the extrac column with the old Clade_consensus
+  select(-Clade_Consensus) %>%
+  # make a factor for plotting
+  mutate(dRep = fct_relevel(dRep, "Sanguinis","Mitis","Salivarius","Anginosus","Bovis","Pyogenic","Mutans","Other_oral","Other","Unknown"))
+
+```
+
+```{r gtdb_strep_clades}
+# file with species names and clade designations
+gtdb_clades <- fread("./00-documentation/dRep_gtdb_clades.tsv")
+
+gtdb_clades <- gtdb_clades %>%
+  mutate(Clade = fct_relevel(Clade, "Sanguinis","Mitis","Salivarius","Anginosus","Bovis","Pyogenic","Mutans","Downei","Other_oral","Other","Unknown"))
+
+```
+
+
+```{r metadata}
+
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  filter(str_detect(Study, "Velsko2022|FellowsYates2021")) %>%
+  distinct()
+
+```
+
+
+```{r}
+# set colors to resemble James' figure
+
+clade_colors <- c("Sanguinis" = "#a50026",
+                  "Mitis" = "#d73027",
+                  "Salivarius" = "#f46d43",
+                  "Anginosus" = "#fee090",
+                  "Bovis" = "#abd9e9",
+                  "Pyogenic" = "#74add1",
+                  "Mutans" = "#4575b4",
+                  "Oral_other" = "#313695",
+                  "Downei" = "#313695",
+                  "Other" = "#4d4d4d",
+                  "Unknown" = "#e0e0e0")
+
+genus_colors <- c("Streptococcus" = "#a50026", "Other" = "#e0e0e0")
+
+```
+
+
+## MALT customRefSeq table
+```{r load_malt_data}
+# Use only 2 datasets - FellowsYates2021 and MID/CMB from Velsko2022
+# These are published (or on biorxiv) with MALT
+calc_malt_raw <- 
+  # add MID data
+  fread("./00-documentation/MID_malt_refseq_species.tsv") %>%
+        rename(Species = 1) %>%
+        select(-matches("JAE|VLC|EXB|LIB|CS|calc|ELR|IVE")) %>%
+  # # add FellowsYates 2021 data
+  full_join(., fread("./00-documentation/deep_evo_malt_refseq_comparison_species.tsv") %>%
+              rename(Species = 1)) %>%
+  # replace NA with 0
+  replace(is.na(.), 0)
+
+colnames(calc_malt_raw) <- gsub(".unmapped","",colnames(calc_malt_raw))
+
+calc_malt_strep_sp <- calc_malt_raw %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # re-order names to be alphabetical
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  left_join(., lib_metadata %>%
+              select(Sample_alias, Sample_group) %>%
+              rename(Library_ID = Sample_alias)) %>%
+  # filter(Sample_group != "non_human_primate") %>%
+  select(-Sample_group) %>%
+  unique() %>%
+  arrange(Library_ID, Species) %>%
+  pivot_wider(names_from = "Library_ID", values_from = "Counts")
+
+calc_malt_strep_sp_samples <- calc_malt_strep_sp %>%
+  # slice(n = 1) %>%
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  pivot_wider(names_from = "Species", values_from = "Counts") %>%
+  select(Library_ID) %>%
+  pull()
+
+```
+
+
+## Kraken2 GTDB r202 table
+```{r load_gtdb_data}
+# read in the species table
+calc_gtdb_raw <- fread("./05-results/mod_calc.kraken2.gtdb.report_mpa.tsv") %>%
+  full_join(., fread("./05-results/anc_calc.kraken2.gtdb.report_mpa.tsv.gz") %>%
+              rename(`#Classification` = 1), by = "#Classification") %>%
+  # full_join(., fread("./05-results/chimp_calc.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/gorilla_calc.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/howler_calc.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  replace(is.na(.), 0)
+
+# read in the file names to add as column headers
+calc_gtdb_names <- fread("./05-results/mod_calc_names.tsv", header = F) %>%
+  bind_rows(.,fread("./05-results/anc_calc_names.tsv", header = F)) %>%
+  # bind_rows(., fread("./05-results/chimp_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/gorilla_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/howler_names.tsv", header = F)) %>%
+  pull()
+
+# add the sample names to the table
+# move the lineage to the rownames so only samples are left as columns
+calc_gtdb_raw_rn <- calc_gtdb_raw %>%
+  select("#Classification")
+
+calc_gtdb_raw <- calc_gtdb_raw %>%
+  select(-`#Classification`)
+
+# add the sample names
+colnames(calc_gtdb_raw) <- calc_gtdb_names
+
+# move the lineage back to a column
+calc_gtdb_raw <- calc_gtdb_raw %>%
+  bind_cols(., calc_gtdb_raw_rn) %>%
+  select(`#Classification`, everything()) %>%
+  rename(Lineage = 1)
+
+# now add the chimpanzees
+calc_gtdb_raw <- calc_gtdb_raw %>%
+  full_join(., fread("./05-results/chimp_calc.kraken2.gtdb.report_mpa.tsv") %>%
+            rename(Lineage = 1), by = "Lineage") %>%
+  replace(is.na(.), 0)
+
+# filter to have only Streptococcus species
+calc_gtdb_strep_sp <- calc_gtdb_raw %>% 
+  # and take only the samples that are also in the MALT table
+  select(matches(calc_malt_strep_sp_samples %>% str_c(collapse = "|"))) %>%
+  bind_cols(calc_gtdb_raw_rn) %>%
+  select(`#Classification`, everything()) %>%
+  rename(Lineage = 1) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # replace NA with 0
+  replace(is.na(.), 0) %>%
+  # re-order names to be alphabetical
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  arrange(Library_ID) %>%
+  pivot_wider(names_from = "Library_ID", values_from = "Counts")
+
+```
+
+Read in poorly-preserved samples. 
+```{r cuperdec_poor}
+# read in table of poorly-preserved samples as determined by cuperdec
+# there are none for modern calculus
+# poor_samples <- fread("./05-results/cuperdec_anc_calc_poor_samples.tsv") %>%
+#   pull(Sample)
+
+```
+
+
+
+```{r strep_clade_props}
+
+# set the order of samples based on proportion of Sanguinis and agninosis
+# need to get the proportion of each for this
+# then arrange by proportion
+
+# GTDB r202
+sample_order_gtdb <- calc_gtdb_strep_sp  %>%
+  # join with the Strep group table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(-Species) %>%
+  select(Clade, everything()) %>%
+  # long-format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  # sum together all species per group
+  group_by(Library_ID, Clade) %>%
+  summarize(Reads = sum(Counts)) %>%
+  ungroup() %>%
+  # transpose
+  spread(Clade, Reads) %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  # add the metadata to separate humans and non-human primates
+  left_join(., lib_metadata %>%
+              select(Sample_alias, Host) %>%
+              rename(Library_ID = Sample_alias), by = "Library_ID") %>%
+  distinct() %>%
+  # the JAE samples don't have a host entry, change NA to Human
+  mutate(Host = ifelse(is.na(Host), "Human", Host)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey", "Gorilla", "Chimpanzee", "Neanderthal", "Human")) %>%
+  group_by(Host) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  arrange(Host, desc(Sanguinis), Anginosus) %>%
+  pull(Library_ID)
+
+
+
+# MALT customRefSeq
+sample_order_malt <- calc_malt_strep_sp  %>%
+  # join with the Strep grup table for plotting
+  inner_join(., strep_groups) %>%
+  select(-Species) %>%
+  select(dRep, everything()) %>%
+  # long-format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  # sum together all species per group
+  group_by(Library_ID, dRep) %>%
+  summarize(Reads = sum(Counts)) %>%
+  ungroup() %>%
+  # transpose
+  spread(dRep, Reads) %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  # add the metadata to separate humans and non-human primates
+  left_join(., lib_metadata %>%
+              select(Sample_alias, Host) %>%
+              rename(Library_ID = Sample_alias), by = "Library_ID") %>%
+  distinct() %>%
+  # the JAE samples don't have a host entry, change NA to Human
+  mutate(Host = ifelse(is.na(Host), "Human", Host)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey", "Gorilla", "Chimpanzee", "Neanderthal", "Human")) %>%
+  # drop_na(Sanguinis) %>%
+  group_by(Host) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  arrange(Host, desc(Sanguinis), Anginosus) %>%
+  pull(Library_ID)
+
+
+
+```
+
+```{r}
+# gtdb
+mc_gtdb_clades <- calc_gtdb_strep_sp %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ungroup() %>%
+  left_join(., lib_metadata %>%
+              select(Sample_alias, Host) %>%
+              rename(Library_ID = Sample_alias), by = "Library_ID") %>%
+  distinct() %>%
+  # the JAE samples don't have a host entry, change NA to Human
+  mutate(Host = ifelse(is.na(Host), "Human", Host)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey","Gorilla","Chimpanzee", "Neanderthal","Human"),
+         Library_ID = fct_relevel(Library_ID, sample_order_malt)) %>% # sample_order_gtdb
+  arrange(Host, Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = Clade)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1,size = 4),
+               axis.text.y = element_text(size = 12)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         labs(fill = "Clade") +
+         xlab("Sample") +
+         ggtitle("GTDB") +
+         facet_grid(~Host, scales = "free_x", space = 'free')
+mc_gtdb_clades
+
+# malt
+mc_malt_clades <- calc_malt_strep_sp %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., strep_groups) %>%
+  select(Species, dRep, everything()) %>%
+  # convert to long-format
+  gather("Library_ID","Counts", 3:ncol(.)) %>%
+  dplyr::group_by(Library_ID, dRep) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ungroup() %>%
+  left_join(., lib_metadata %>%
+              select(Sample_alias, Host) %>%
+              rename(Library_ID = Sample_alias), by = "Library_ID") %>%
+  distinct() %>%
+  # the JAE samples don't have a host entry, change NA to Human
+  mutate(Host = ifelse(is.na(Host), "Human", Host)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey","Gorilla","Chimpanzee", "Neanderthal","Human"),
+         Library_ID = fct_relevel(Library_ID, sample_order_malt)) %>% # sample_order_gtdb
+  arrange(Host, Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = dRep)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) +
+         theme(
+           # axis.text.x = element_text(angle = 90, hjust = 1, size = 4),
+               axis.text.y = element_text(size = 12)) +
+         theme(axis.text.x = element_blank()) +
+        # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # geom_hline(yintercept = 0.5, linetype = "dotted") +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         labs(fill = "Clade") +
+         xlab("Sample") +
+         ggtitle("MALT") +
+         facet_grid(~Host, scales = "free_x", space = 'free')
+mc_malt_clades
+
+```
+
+```{r}
+
+clade_bars_plot <- mc_malt_clades / mc_gtdb_clades +
+  plot_layout(heights = c(1,1))
+  
+clade_bars_plot
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_SXX5/malt_v_gtdb_strep_clades.pdf", plot = clade_bars_plot, device = "pdf",
+#        scale = 1, width = 16, height = 8, units = c("in"), dpi = 300)
+
+```
+
+
+```{r anginosus_pct}
+
+anginosus_over_50 <- calc_malt_strep_sp  %>%
+  # join with the Strep grup table for plotting
+  inner_join(., strep_groups) %>%
+  select(-Species) %>%
+  select(dRep, everything()) %>%
+  # long-format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  # sum together all species per group
+  group_by(Library_ID, dRep) %>%
+  summarize(Reads = sum(Counts)) %>%
+  ungroup() %>%
+  # transpose
+  spread(dRep, Reads) %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  # add the metadata to separate humans and non-human primates
+  left_join(., lib_metadata %>%
+              select(Sample_alias, Host) %>%
+              rename(Library_ID = Sample_alias), by = "Library_ID") %>%
+  distinct() %>%
+  # the JAE samples don't have a host entry, change NA to Human
+  mutate(Host = ifelse(is.na(Host), "Human", Host)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey", "Gorilla", "Chimpanzee", "Neanderthal", "Human")) %>%
+  # drop_na(Sanguinis) %>%
+  group_by(Host) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  arrange(Host, desc(Sanguinis), Anginosus) %>%
+  filter(Anginosus >= 0.5) %>%
+  select(Library_ID, Anginosus, Host) %>%
+  mutate(DB = "MALT") %>%
+  bind_rows(., calc_gtdb_strep_sp  %>%
+            # join with the Strep group table for plotting
+            inner_join(., gtdb_clades) %>%
+            select(-Species) %>%
+            select(Clade, everything()) %>%
+            # long-format
+            gather("Library_ID","Counts", 2:ncol(.)) %>%
+            # sum together all species per group
+            group_by(Library_ID, Clade) %>%
+            summarize(Reads = sum(Counts)) %>%
+            ungroup() %>%
+            # transpose
+            spread(Clade, Reads) %>%
+            # convert table to proportions
+            adorn_percentages(denominator = "row") %>%
+            # add the metadata to separate humans and non-human primates
+            left_join(., lib_metadata %>%
+                        select(Sample_alias, Host) %>%
+                        rename(Library_ID = Sample_alias), by = "Library_ID") %>%
+            distinct() %>%
+            # the JAE samples don't have a host entry, change NA to Human
+            mutate(Host = ifelse(is.na(Host), "Human", Host)) %>%
+            mutate(Host = fct_relevel(Host, "Howler monkey", "Gorilla", "Chimpanzee", "Neanderthal", "Human")) %>%
+            group_by(Host) %>%
+            # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+            arrange(Host, desc(Sanguinis), Anginosus) %>%
+            filter(Anginosus >= 0.5) %>%
+            select(Library_ID, Anginosus, Host) %>%
+            mutate(DB = "GTDB"))
+
+
+```
+
+
+```{r, eval = F}
+strep_plots <- mc_clades / mc_strep_prop / mc_points +
+  plot_layout(heights = c(1,1,1))
+
+strep_plots
+
+# ggsave("./06-publication/supplemental_figures/SXX46/hmp_strep_props.pdf", plot = strep_plots, device = "pdf",
+#        scale = 1, width = 10, height = 8, units = c("in"), dpi = 300)
+
+```
+
+
+```{r}
+strepdiff <- calc_gtdb_raw %>% 
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Strep"),"Streptococcus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup() %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "GTDB")%>%
+  full_join(., calc_malt_raw %>%
+            # make a column with Strep or other
+            mutate(Genus = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus","Other")) %>%
+            # remove Species column leaving Genus column
+            select(Genus, everything()) %>%
+            select(-Species) %>%
+            # convert to long format
+            pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+            group_by(Library_ID, Genus) %>%
+            # sum all Strep read counts and all Other read counts
+            summarize(Reads = sum(Counts)) %>%
+            pivot_wider(names_from = "Genus", values_from = "Reads") %>%
+            # convert to proportions
+            adorn_percentages() %>%
+            ungroup() %>%
+            pivot_longer(!Library_ID, names_to = "Genus", values_to = "MALT")) %>%
+  mutate(Diff = log2(GTDB / MALT)) %>%
+  drop_na(MALT)
+
+
+strep_diff_plot <- xx
+
+strepdiff %>%
+  left_join(., lib_metadata %>%
+              rename(Library_ID = Sample_alias) %>%
+              select(Library_ID, Study, Host) %>%
+              mutate(Library_ID = str_replace_all(Library_ID, ".SG1.1","")), by = "Library_ID") %>%
+  filter(Genus == "Streptococcus") %>%
+  distinct() %>%
+  # Fill in missing information for JAE
+  mutate(Host = ifelse(is.na(Host), "Human", Host),
+         Study = ifelse(is.na(Study), "FellowsYates2021", Study)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey", "Gorilla", "Chimpanzee", "Neanderthal", "Human")) %>%
+  group_by(Study, Host) %>%
+  arrange(Study, Library_ID) %>%
+  ungroup() %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_malt)) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(Library_ID, Genus, fill = Diff)) +
+    geom_tile() +
+    # scale_fill_viridis_c(option = "A") +
+    # colorspace::scale_color_discrete_diverging(palette = "Blue-Red", nmax = 100) +
+    scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_blank(),
+          axis.text.y = element_text(size = 8),
+          plot.margin = margin(0, 0, 0, 0, "pt"),
+          axis.title.y = element_blank(),
+          legend.position = "left") +
+    facet_grid(~Host, scales = "free_x", space = 'free')
+strep_diff_plot
+
+```
+
+
+```{r}
+
+difftable <- calc_gtdb_strep_sp %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep group table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  gather("Library_ID","Counts", 3:ncol(.)) %>%
+  # mutate(Library_ID = fct_relevel(Library_ID, sample_order_gtdb)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ungroup() %>%
+  group_by(Library_ID) %>%
+  mutate(GTDB = Count_sum / sum(Count_sum) * 100) %>%
+  ungroup() %>%
+  select(-Count_sum) %>%
+  full_join(., calc_malt_strep_sp %>%
+              # join with the Strep group table for plotting
+              inner_join(., strep_groups) %>%
+              select(Species, dRep, everything()) %>%
+              # convert to long-format
+              gather("Library_ID","Counts", 3:ncol(.)) %>%
+              dplyr::group_by(Library_ID, dRep) %>%
+              summarize(Count_sum = sum(Counts)) %>%
+              ungroup() %>%
+              group_by(Library_ID) %>%
+              rename(Clade = dRep) %>%
+              mutate(MALT = Count_sum / sum(Count_sum) * 100) %>%
+              select(-Count_sum) %>%
+              ungroup()) %>%
+  mutate(MALT = ifelse(is.na(MALT),0,MALT),
+         # add a small numbmer to all entries to be able to calculate log
+         MALT = MALT + 1,
+         GTDB = GTDB + 1,
+         Diff = log2(GTDB / MALT))
+
+
+# order library IDs
+study_order <- lib_metadata %>%
+  # filter(Sample_group != "non_human_primate") %>%
+  select(Sample_alias, Study, Host) %>%
+  distinct() %>%
+  arrange(Study, Host, Sample_alias) %>%
+  pull(Sample_alias)
+
+clade_enrichment <- difftable %>%
+  drop_na(MALT) %>%
+  left_join(., lib_metadata %>%
+              rename(Library_ID = Sample_alias) %>%
+              select(Library_ID, Study, Host), by = "Library_ID") %>%
+  distinct() %>%
+  # Fill in missing information for JAE
+  mutate(Host = ifelse(is.na(Host), "Human", Host),
+         Study = ifelse(is.na(Study), "FellowsYates2021", Study)) %>%
+  mutate(Host = fct_relevel(Host, "Howler monkey", "Gorilla","Chimpanzee", "Neanderthal", "Human")) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_malt)) %>%
+  arrange(Library_ID, Clade) %>%
+  # filter(Library_ID == "ABM006.A0101")
+  ggplot(., aes(Library_ID, Clade, fill = Diff)) +
+    geom_tile() +
+    # scale_fill_viridis_c(option = "A") +
+    scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 12) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 4),
+          axis.text.y = element_text(size = 8),
+          plot.margin = margin(0, 0, 0, 0, "pt"),
+          axis.title.y = element_blank(),
+          legend.position = "left") +
+    facet_grid(~Host, scales = "free_x", space = 'free')
+clade_enrichment  
+
+```
+
+
+Count the number of Strep species in each clade in each database
+```{r}
+
+# set colors from LaCroixColoR
+db_colors <- c("Custom RefSeq" =  "#4A6FE3",
+               "GTDB"= "#FC6882") # #1BB6AF
+
+db_species_counts <- calc_malt_strep_sp %>%
+  select(Species) %>%
+  left_join(., strep_groups) %>%
+  group_by(dRep) %>%
+  count() %>%
+  ungroup() %>%
+  rename(Clade = dRep) %>%
+  mutate(DB = "Custom RefSeq") %>%
+  mutate(Clade = as.character(Clade)) %>%
+  mutate(Clade = ifelse(is.na(Clade),"Unknown",Clade)) %>%
+  bind_rows(., calc_gtdb_strep_sp %>%
+            select(Species) %>%
+            left_join(., gtdb_clades) %>%
+            group_by(Clade) %>%
+            count() %>%
+            mutate(DB = "GTDB") %>%
+            mutate(Clade = as.character(Clade)) %>%
+            ungroup()) %>%
+  mutate(DB = fct_relevel(DB, "Custom RefSeq","GTDB"),
+         Clade = fct_relevel(Clade, "Sanguinis","Mitis","Salivarius","Anginosus","Mutans","Other_oral","Downei","Bovis","Pyogenic","Other","Unknown")
+         ) %>%
+  arrange(Clade) %>%
+  ggplot(., aes(x = Clade, y = n, fill = DB)) +
+         geom_bar(stat = "identity", position = position_dodge2(width = 0.9, preserve = "single"), color = "black") + # , color = "black"
+         geom_text(aes(label = n), position=position_dodge(width=0.9), vjust=-0.25, size = 2.5) +
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = db_colors) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         ylab("No. species") +
+         xlab("Clade")
+db_species_counts  
+
+
+```
+
+```{r}
+
+strep_diffs_plot <- strep_diff_plot + db_species_counts + clade_enrichment +
+  plot_layout(nrow = 2) +
+  plot_layout(widths = c(4,0.8))
+  
+strep_diffs_plot
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S5/malt_v_gtdb_strep_diffs.pdf", plot = strep_diffs_plot, device = "pdf",
+#        scale = 1, width = 20, height = 6, units = c("in"), dpi = 300)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

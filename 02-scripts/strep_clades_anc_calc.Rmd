@@ -1,0 +1,2304 @@
+---
+title: "Ancient calculus Strep clade distributions"
+author: "Irina Velsko"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output:
+    github_document:
+        fig_width: 8
+        fig_height: 6
+        toc: true
+---
+
+```{r load_libraries, echo = F, message = F}
+library(knitr)
+library(data.table)
+library(janitor)
+library(rstatix)
+library(tidyverse)
+library(patchwork)
+opts_chunk$set(echo=F, warning=F, message=F, dpi=150)
+```
+
+Set the working directory of the notebook to the parent directory of the 
+notebook itself.  
+
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+
+```{r}
+# file with species names and clade designations
+gtdb_clades <- fread("./00-documentation/dRep_gtdb_clades.tsv")
+
+gtdb_clades <- gtdb_clades %>%
+  mutate(Clade = fct_relevel(Clade, "Sanguinis","Mitis","Salivarius","Anginosus","Bovis","Pyogenic","Mutans","Downei","Other","Unknown"))
+
+```
+
+
+```{r metadata}
+
+# get only industrial saliva from the metadata table
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  filter(str_detect(Sample_group, "ancient_calculus")) %>%
+  distinct()
+
+
+lib_metadata_extended <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  select(matches("Study|Sample|Host|accession|Age|avg|reads")) %>%
+  filter(!str_detect(Study, "ObregonTito2015|Oh2016|Rampelli2015|Sankaranarayanan2015|Slon2017")) %>%
+  filter(!str_detect(Sample_group,"urban_gut|blank|Bone|Blank|blank|skin|sediment")) %>%
+  mutate(Secondary_sample_accession = ifelse(Study == "Velsko2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2023", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "FellowsYates2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Clemente2015", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Lassalle2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Brealey2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eerkens2018", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eisenhofer2020", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Fagernaes2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Granehaell2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Jacobson2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018_w", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ozga2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Iberian", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Pacific", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Weyrich2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Warinner2014", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Asangba2022", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Neukamm2020", Sample_alias,Secondary_sample_accession)) %>%
+  mutate(Secondary_sample_accession = str_replace_all(Secondary_sample_accession, ".SG1.1","")) %>%
+  mutate(Full_next = ifelse(Study == "Clemente2015","Buccal mucosa - Non-industrial",
+                       ifelse(Study == "Lassalle2017","Saliva - Non-industrial",
+                              ifelse(Study == "Velsko2023", "Plaque - Non-industrial",
+                                     ifelse(Study == "Velsko2018" & Sample_group == "modern_calculus","Calculus - Industrial",
+                                            ifelse(Study == "FellowsYates2021" & Sample_group == "modern_calculus","Calculus - Industrial","Calculus - Ancient")))))) %>%
+  mutate(Full_next = ifelse(Study == "Asangba2022", "NHP - oral swab",
+                            ifelse(Study == "Moraitou2022", "Gorilla calculus",
+                                   ifelse(Study == "Brealey2020", "Gorilla calculus",
+                                          ifelse(Study == "Ozga2019","Chimpanzee calculus",
+                                                 ifelse(Study == "Ottoni2019","Baboon calculus",Full_next)))))) %>%
+  mutate(Full_next = ifelse(Study == "HMP2012" & Sample_type == "supraplaque","supraPlaque - Industrial",
+                       ifelse(Study == "HMP2012" & Sample_type == "saliva","Saliva - Industrial",
+                              ifelse(Study  ==  "HMP2012" & Sample_type == "buccal_mucosa","Buccal mucosa - Industrial",
+                                     ifelse(Study ==  "Brito2016","Saliva - Non-industrial",
+                                            ifelse(Study == "HMP2012" & Sample_type == "subplaque","subPlaque - Industrial",Full_next)))))) %>%
+  # SOMEHOW NEED TO FIX THE SPECIES FOR FELLOWSYATES2021 AND IBERIAN FOR ALL NON-HUMAN SAMPLES
+  mutate(Full_next = ifelse(Study == "FellowsYates2021" & Host == "Gorilla","Gorilla calculus",
+                            ifelse(Study == "FellowsYates2021" & Host == "Chimpanzee","Chimpanzee calculus",
+                                   ifelse(Study == "FellowsYates2021" & Host == "Howler monkey", "Howler calculus",
+                                          ifelse(Study == "Iberian" & Host == "Chimpanzee","Chimpanzee calculus",Full_next))))) %>%
+  mutate(Full = str_replace_all(Full_next, "supra",""),
+         Full = str_replace_all(Full, "sub","")) %>% 
+  mutate(Full_next = fct_relevel(Full_next, "Calculus - Ancient","Calculus - Industrial","subPlaque - Industrial","supraPlaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial")) %>%
+  mutate(Full = fct_relevel(Full, "Calculus - Ancient","Calculus - Industrial","Plaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial"))
+
+
+```
+
+
+```{r}
+# set colors to resemble James' figure
+
+clade_colors <- c("Sanguinis" = "#a50026",
+                  "Mitis" = "#d73027",
+                  "Salivarius" = "#f46d43",
+                  "Anginosus" = "#fee090",
+                  "Bovis" = "#abd9e9",
+                  "Pyogenic" = "#74add1",
+                  "Mutans" = "#4575b4",
+                  "Downei" = "#313695",
+                  "Other" = "#4d4d4d",
+                  "Unknown" = "#e0e0e0")
+
+genus_colors <- c("Streptococcus" = "#a50026", "Other" = "#e0e0e0")
+
+```
+
+
+## Kraken2 GTDB r202 table
+```{r load_data}
+# read in the species table. It has the column names already
+anc_calc_raw <- fread("./05-results/anc_calc.kraken2.gtdb.report_mpa.tsv.gz") 
+
+anc_names <- fread("./05-results/anc_calc_names.tsv", header = F)  %>%
+  rename(Library_ID = 1) %>%
+  mutate(Library_ID = str_replace_all(Library_ID, ".SG1.1", ""),
+         Library_ID = str_replace_all(Library_ID, ".SG1", ""))
+
+# filter to have only species and remove all species with <1000 reads assigned
+# even filtering out taxa with <10000 counts doesn't help
+anc_calc_strep_sp <- anc_calc_raw %>% 
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # remove Radcliffe soil and dentin
+  select(-matches("CSS|CSD"))
+
+```
+
+Read in poorly-preserved samples. 
+```{r cuperdec_poor}
+# read in table of poorly-preserved samples as determined by cuperdec
+poor_samples <- fread("./05-results/cuperdec_anc_calc_poor_samples.tsv") %>%
+  pull(Sample)
+
+poor_df <- fread("./05-results/cuperdec_anc_calc_poor_samples.tsv") %>%
+  mutate(Preservation = "Poor") %>%
+  rename(Library_ID = Sample)
+
+```
+
+### All samples
+```{r strep_clade_props}
+
+# set the order of samples based on proportion of Sanguinis and agninosis
+# need to get the proportion of each for this
+# then arrange by proportion
+
+sample_order_rs <- anc_calc_strep_sp  %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(-Species) %>%
+  select(Clade, everything()) %>%
+  # long-format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  # sum together all species per group
+  group_by(Library_ID, Clade) %>%
+  summarize(Reads = sum(Counts)) %>%
+  # transpose
+  spread(Clade, Reads) %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  # full_join(., poor_samples %>% as_tibble(.) %>% rename(Library_ID = 1) %>% mutate(Preservation = "Poor")) %>%
+  # mutate(Preservation = ifelse(is.na(Preservation), "Good",Preservation)) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  # arrange(Preservation, Library_ID)
+  arrange(desc(Sanguinis), Anginosus) %>% # Preservation, 
+  pull(Library_ID)
+
+
+ac_clades <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = Clade)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # geom_hline(yintercept = 0.5, linetype = "dotted") +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         labs(fill = "Clade") +
+         xlab("Sample") +
+         ggtitle("")
+ac_clades
+
+```
+
+
+```{r}
+
+ac_clades_table <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  pivot_wider(names_from = "Clade", values_from = "Count_sum") %>%
+  adorn_percentages(denominator = "row") %>%
+  as_tibble()
+
+# test normality of the data. p < 0.05 is non-normal data
+shapiro.test(ac_clades_table$Sanguinis)
+shapiro.test(ac_clades_table$Anginosus)
+
+ac_clades_table %>%
+  cor_test(Sanguinis, Anginosus, method = "spearman") %>%
+  bind_rows(ac_clades_table %>% cor_test(Sanguinis, Anginosus, method = "kendall"))
+  
+```
+
+
+```{r save_rs_order, eval = F}
+
+# sample_order_rs %>%
+#   as.data.frame(.) %>%
+#  rename(Library_ID = ".") %>%
+# fwrite(., "./05-results.backup/malt_rs_Strep_group_order.tsv", sep = "\t", quote = F)
+
+```
+
+
+```{r rs_strep_proportion}
+
+strep_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_strep_prop <- strep_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = genus_colors) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_strep_prop
+
+```
+
+
+```{r sanguinis_anginosus}
+
+aardvark <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus_inc = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus", "NonStrep")) %>%
+  left_join(., gtdb_clades , by = "Species") %>%
+  # remove Species column leaving Genus column
+  mutate(Genus = replace_na(as.character(Clade), "NonStrep")) %>%
+  select(Genus, everything()) %>%
+  select(-matches("Species|Clade|Genus_inc")) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup() %>%
+  # rearrange column order
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, everything()) %>%
+  # now sum counts for columns we're not interested in 
+  mutate(OtherStrep = select(., Bovis:Salivarius) %>% rowSums()) %>%
+  # rearrange column order again and drop the unwanted columns
+  select(Library_ID, NonStrep, Sanguinis, Anginosus) %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  # order the Library ID by 
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Counts = Counts + 0.0001) %>%
+         # Genus = fct_relevel(Genus, "NonStrep","OtherStrep","Sanguinis","Anginosus")) %>%
+  filter(str_detect(Genus, "Sanguinis|Anginosus"))  %>%
+  filter(Genus != "OtherStrep")
+
+ac_points <- aardvark%>%
+  arrange(Library_ID) %>%
+  mutate(Percent = Counts * 100) %>%
+  mutate(Library_ID = fct_drop(Library_ID)) %>%
+  ggplot(., aes(x = Library_ID, y = Percent, shape = Genus, bg = Genus)) +
+         geom_point(size = 1.0, color = "grey50") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) + # c("#fee090","#a50026")
+         scale_shape_manual(values = c(21,24,23,22)) +
+         theme(
+               axis.text.x = element_blank(),
+               # axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         scale_y_log10() +
+         labs(fill = "Clade", shape = "Clade") +
+         ylab("Percent") +
+         ggtitle("")
+ac_points
+
+```
+
+```{r}
+
+sample_age_plot <- lib_metadata_extended %>%
+  select(Secondary_sample_accession, Age_BP) %>%
+  filter(Secondary_sample_accession %in% sample_order_rs)  %>%
+  mutate(Secondary_sample_accession = fct_relevel(Secondary_sample_accession, sample_order_rs),
+         log_age = log10(Age_BP),
+         plotbar = "Age") %>%
+  ggplot(., aes(Secondary_sample_accession, plotbar, fill = log_age)) +
+         geom_tile() +
+         theme_minimal(base_size = 14) +
+         scale_fill_viridis_c(option = "G", direction = -1) +
+         theme(axis.text = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         ylab("Age (BP)") +
+         xlab("Sample") +
+        ggtitle("")
+  
+sample_age_plot
+
+```
+
+
+```{r}
+# number/percent of samples with Anginosus over 50% of Strep
+# there are 71 samples with Anginosus over 50% of Strep, and 483 samples (14.7%)
+anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  pivot_wider(names_from = "Library_ID", values_from = "Count_sum") %>%
+  adorn_percentages(denominator = "col") %>%
+  as_tibble() %>%
+  pivot_longer(!Clade, names_to = "Library_ID", values_to = "Proportion") %>%
+  filter(Clade == "Anginosus", Proportion >= 0.5) %>%
+  arrange(Library_ID)
+
+
+strep_plots <- ac_clades / ac_strep_prop / ac_points +
+  plot_layout(heights = c(1,1,1))
+
+strep_plots
+
+```
+
+```{r}
+
+strep_age_bars <- ac_clades / sample_age_plot +
+  plot_layout(heights = c(3,1))
+
+strep_age_bars
+
+ggsave("./06-publication/supplemental_figures/Sup_fig_S6/strep_age_bars.pdf", plot = strep_age_bars, device = "pdf",
+       scale = 1, width = 10, height = 5, units = c("in"), dpi = 300)
+
+
+```
+
+
+### Other early colonizers
+
+See if Neisseria are higher in samples with low Strep than samples with high Strep. Neisseria are also an early colonizer.
+```{r rs_neisseria_proportion}
+
+neisseria_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Neisseria"),"Neisseria","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_neisseria_prop <- neisseria_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Neisseria")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_neisseria_prop
+
+```
+
+See if Actinomyces are higher in samples with low Strep than samples with high Strep. actinomyces are also an early colonizer.
+```{r rs_actinomyces_proportion}
+
+actinomyces_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Actinomyces"),"Actinomyces","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_actinomyces_prop <- actinomyces_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Actinomyces")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_actinomyces_prop
+
+```
+
+See if Veillonella are higher in samples with low Strep than samples with high Strep. Veillonella are also an early colonizer.
+```{r rs_Veillonella_proportion}
+
+veillonella_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Veillonella"),"Veillonella","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_veillonella_prop <- veillonella_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Veillonella")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_veillonella_prop
+
+```
+
+```{r rs_Corynebacterium_proportion}
+
+corynebacterium_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Corynebacterium"),"Corynebacterium","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_corynebacterium_prop <- corynebacterium_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Corynebacterium")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_corynebacterium_prop
+
+```
+
+```{r rs_fusobacterium_proportion}
+
+fusobacterium_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Fusobacterium"),"Fusobacterium","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_fusobacterium_prop <- fusobacterium_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Fusobacterium")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_fusobacterium_prop
+
+```
+
+```{r}
+capnocytophaga_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Capnocytophaga"),"Capnocytophaga","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_capnocytophaga_prop <- capnocytophaga_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Capnocytophaga")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_capnocytophaga_prop
+
+```
+
+
+```{r}
+early_colonizer_plots <- ac_strep_prop / ac_neisseria_prop / ac_actinomyces_prop / ac_veillonella_prop / ac_corynebacterium_prop / ac_capnocytophaga_prop / ac_fusobacterium_prop +
+  plot_layout(heights = c(1,1,1,1,1,1,1))
+
+early_colonizer_plots
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S8/early_colonizer_plots_anc_calc.pdf", plot = early_colonizer_plots, device = "pdf",
+#        scale = 1, width = 14, height = 18, units = c("in"), dpi = 300)
+
+```
+
+See if *Porphyromonas* are higher in samples with low Strep than samples with high
+*Strep.* *P. gingivalis* abundance is inversely correlated  w/*S. cristatus* abundance
+```{r rs_Porphyromonas_proportion}
+
+porphyromonas_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Porphyromonas"),"Porphyromonas","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_porphyromonas_prop <- porphyromonas_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","porphyromonas")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_porphyromonas_prop
+
+
+```
+
+See if *Methanobrevibacter* are higher in samples with low Strep than samples with high
+*Strep.* 
+```{r rs_Methanobrevibacter_proportion}
+
+methanobrevibacter_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Methanobrevibacter"),"Methanobrevibacter","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_methanobrevibacter_prop <- methanobrevibacter_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Methanobrevibacter")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_methanobrevibacter_prop
+
+
+late_colonizer_plots <- ac_strep_prop / ac_porphyromonas_prop + ac_methanobrevibacter_prop +
+  plot_layout(heights = c(1,1,1))
+
+late_colonizer_plots
+
+ggsave("./06-publication/supplemental_figures/Sup_fig_S9/late_colonizer_plots_anc_calc.pdf", plot = late_colonizer_plots, device = "pdf",
+       scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
+
+
+```
+
+```{r bridging_organisms}
+
+corynebacterium_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Corynebacterium"),"Corynebacterium","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+fusobacterium_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Fusobacterium"),"Fusobacterium","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+
+```
+
+```{r}
+
+desulfobulbus_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Desulfobulbus"),"Desulfobulbus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+flexilinea_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Flexilinea"),"Flexilinea","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+capnocytophaga_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Capnocytophaga"),"Capnocytophaga","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+
+strep_prop %>%
+  select(-Other) %>%
+  full_join(., corynebacterium_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., methanobrevibacter_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., desulfobulbus_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., flexilinea_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., capnocytophaga_prop %>% select(-Other), by = "Library_ID") %>%
+  pivot_longer(!Library_ID, names_to = "Species", values_to = "relab") %>%
+  mutate(relab = log10(relab)) %>%
+  # pivot_wider(names_from = "Species", values_from = "relab")
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Species = fct_relevel(Species, "Streptococcus", "Corynebacterium","Desulfobulbus","Methanobrevibacter","Flexilinea")) %>%
+  arrange(Species, Library_ID) %>%
+  ggplot(., aes(Library_ID, Species, fill = relab)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "Blues", direction=-1) +
+    # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 8) +
+    theme(axis.text.x = element_blank()) +
+    # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+          axis.title.y = element_blank(),
+          legend.position = "left") +
+     scale_y_discrete(limits=rev) +
+     ylab("Percent") +
+     xlab("Sample")
+
+
+```
+
+```{r}
+
+genus_table <- strep_prop %>%
+  select(-Other) %>%
+  full_join(., desulfobulbus_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., flexilinea_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., methanobrevibacter_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., porphyromonas_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., corynebacterium_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., fusobacterium_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., neisseria_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., veillonella_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., actinomyces_prop %>% select(-Other), by = "Library_ID") %>%
+  full_join(., capnocytophaga_prop %>% select(-Other), by = "Library_ID") %>%
+  mutate(Streptococcus = Streptococcus * 100,
+         Flexilinea = Flexilinea * 100,
+         Desulfobulbus = Desulfobulbus * 100,
+         Corynebacterium = Corynebacterium * 100,
+         Porphyromonas = Porphyromonas * 100,
+         Fusobacterium = Fusobacterium * 100,
+         Veillonella = Veillonella * 100,
+         Actinomyces = Actinomyces * 100,
+         Neisseria = Neisseria * 100,
+         Capnocytophaga = Capnocytophaga * 100,
+         Methanobrevibacter = Methanobrevibacter * 100) %>%
+  arrange(desc(Streptococcus), Methanobrevibacter)
+
+# test normality of the data. p < 0.05 is not normal data
+shapiro.test(genus_table$Methanobrevibacter)
+shapiro.test(genus_table$Flexilinea)
+
+genus_table %>%
+  cor_test(Streptococcus, Corynebacterium, method = "spearman") %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Fusobacterium, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Capnocytophaga, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Neisseria, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Actinomyces, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Veillonella, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Methanobrevibacter, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Desulfobulbus, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Porphyromonas, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Streptococcus, Flexilinea, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Methanobrevibacter, Porphyromonas, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Methanobrevibacter, Desulfobulbus, method = "spearman")) %>%
+  bind_rows(genus_table %>% cor_test(Methanobrevibacter, Flexilinea, method = "spearman"))
+
+  
+  genus_table %>%
+  ggplot(., aes(Methanobrevibacter, Flexilinea, fill = Streptococcus)) +
+     geom_point(shape = 21, stroke = 0.3, size = 3) +
+     scale_fill_viridis_c(option = "C") +
+     geom_smooth(method = glm, se = F, col = "black", linewidth = 0.7) +
+     # ggpubr::stat_regline_equation(label.y = 48, aes(label = ..rr.label..)) +
+     theme_minimal(base_size = 12) +
+     theme(text = element_text(size=12)) +
+     theme(legend.key.size = unit(2,"mm"),
+           legend.text = element_text(size = 6)) + 
+     scale_y_log10() +
+     scale_x_log10() +
+     theme(legend.position = "right") 
+# +
+#      xlab("Streptocooccus (%)") +
+#      ylab("Corynebacterium (%)")
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S9/late_colonizer_plots_anc_calc.pdf", plot = late_colonizer_plots, device = "pdf",
+#        scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
+
+
+```
+
+
+### All samples except Pacific
+```{r strep_clade_props_no_pacific}
+
+# set the order of samples based on proportion of Sanguinis and agninosis
+# need to get the proportion of each for this
+# then arrange by proportion
+
+pacific <- lib_metadata %>%
+  filter(Study == "Pacific") %>%
+  select(Sample_alias) %>%
+  unique() %>%
+  pull()
+
+sample_order_no_pacific <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  select(-matches(pacific %>% str_c(collapse = "|"))) %>%
+  # join with the Strep group table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(-Species) %>%
+  select(Clade, everything()) %>%
+  # long-format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  # sum together all species per group
+  group_by(Library_ID, Clade) %>%
+  summarize(Reads = sum(Counts)) %>%
+  ungroup() %>%
+  # transpose
+  spread(Clade, Reads) %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  # full_join(., poor_samples %>% as_tibble(.) %>% rename(Library_ID = 1) %>% mutate(Preservation = "Poor")) %>%
+  # mutate(Preservation = ifelse(is.na(Preservation), "Good",Preservation)) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  # arrange(Preservation, Library_ID)
+  arrange(desc(Sanguinis), Anginosus) %>% # Preservation, 
+  pull(Library_ID)
+
+
+ac_np_clades <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  select(-matches(pacific %>% str_c(collapse = "|"))) %>%
+  # filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_no_pacific)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = Clade)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # geom_hline(yintercept = 0.5, linetype = "dotted") +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         labs(fill = "Clade") +
+         xlab("Sample") +
+         ggtitle("")
+ac_np_clades
+
+```
+
+```{r rs_strep_proportion}
+
+strep_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  select(-matches(pacific %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_np_strep_prop <- strep_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_no_pacific)) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = genus_colors) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_np_strep_prop
+
+```
+
+
+```{r sanguinis_anginosus}
+
+aardvark <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  select(-matches(pacific %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus_inc = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus", "NonStrep")) %>%
+  left_join(., gtdb_clades , by = "Species") %>%
+  # remove Species column leaving Genus column
+  mutate(Genus = replace_na(as.character(Clade), "NonStrep")) %>%
+  select(Genus, everything()) %>%
+  select(-matches("Species|Clade|Genus_inc")) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup() %>%
+  # rearrange column order
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, everything()) %>%
+  # now sum counts for columns we're not interested in 
+  mutate(OtherStrep = select(., Bovis:Salivarius) %>% rowSums()) %>%
+  # rearrange column order again and drop the unwanted columns
+  select(Library_ID, NonStrep, Sanguinis, Anginosus) %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  # order the Library ID by 
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_no_pacific),
+         Counts = Counts + 0.0001) %>%
+         # Genus = fct_relevel(Genus, "NonStrep","OtherStrep","Sanguinis","Anginosus")) %>%
+  filter(str_detect(Genus, "Sanguinis|Anginosus"))  %>%
+  filter(Genus != "OtherStrep")
+
+ac_np_points <- aardvark%>%
+  arrange(Library_ID) %>%
+  mutate(Percent = Counts * 100) %>%
+  mutate(Library_ID = fct_drop(Library_ID)) %>%
+  ggplot(., aes(x = Library_ID, y = Percent, shape = Genus, bg = Genus)) +
+         geom_point(size = 1.0, color = "grey50") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) + # c("#fee090","#a50026")
+         scale_shape_manual(values = c(21,24,23,22)) +
+         theme(
+               axis.text.x = element_blank(),
+               # axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         scale_y_log10() +
+         labs(fill = "Clade", shape = "Clade") +
+         ylab("Percent") +
+         ggtitle("")
+ac_np_points
+
+```
+
+```{r}
+# number/percent of samples with Anginosus over 50% of Strep
+# there are 28 samples with Anginosus over 50% of Strep, and 411 samples (6.8%)
+anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  select(-matches(pacific %>% str_c(collapse = "|"))) %>%
+  # filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_no_pacific)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  pivot_wider(names_from = "Library_ID", values_from = "Count_sum") %>%
+  adorn_percentages(denominator = "col") %>%
+  as_tibble() %>%
+  pivot_longer(!Clade, names_to = "Library_ID", values_to = "Proportion") %>%
+  filter(Clade == "Anginosus", Proportion >= 0.5) %>%
+  arrange(Library_ID)
+
+# plot together
+strep_np_plots <- ac_np_clades / ac_np_strep_prop / ac_np_points +
+  plot_layout(heights = c(1,1,1))
+
+strep_np_plots
+
+ggsave("./06-publication/supplemental_figures/Sup_fig_S7/strep_props_no_pacific.pdf", plot = strep_np_plots, device = "pdf",
+       scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
+
+```
+
+Species most abundant in each clade
+```{r, eval = F}
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  select(matches("Study|Sample|accession")) %>%
+  filter(str_detect(Study, "FellowsYates2021|HMP2012|Lassalle2017|Clemente2015|Brito2016|Velsko2018|Velsko2023")) %>%
+    filter(Sample_group != "ancient_calculus",
+           Sample_group != "non_human_primate",
+           Sample_type != "blank") %>%
+  mutate(Secondary_sample_accession = ifelse(Study == "Velsko2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2023", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "FellowsYates2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Clemente2015", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Lassalle2017", Run_accession,Secondary_sample_accession)) %>%
+  mutate(Full = ifelse(Study == "Clemente2015","Buccal mucosa - Non-industrial",
+                       ifelse(Study == "Lassalle2017","Saliva - Non-industrial",
+                              ifelse(Study == "Velsko2023", "Plaque - Non-industrial",
+                                     ifelse(Study == "Velsko2018","Calculus - Industrial",
+                                            ifelse(Study == "FellowsYates2021","Calculus - Industrial","Industrial")))))) %>%
+  mutate(Full = ifelse(Study == "HMP2012" & Sample_type == "plaque","Plaque - Industrial",
+                       ifelse(Study == "HMP2012" & Sample_type == "saliva","Saliva - Industrial",
+                              ifelse(Study  ==  "HMP2012" & Sample_type == "buccal_mucosa","Buccal mucosa - Industrial",
+                                     ifelse(Study ==  "Brito2016","Saliva - Industrial",Full)))))
+
+  
+lib_metadata <- lib_metadata %>% 
+  mutate(Full = fct_relevel(Full, "Plaque - Industrial","Plaque - Non-industrial","Calculus - Industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial"))
+
+```
+
+
+```{r}
+
+sp_order <- anc_calc_raw  %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade) %>%
+  arrange(Clade, Species) %>%
+  mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+  pull(Species)
+
+get_sp <- anc_calc_raw  %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # join with the Strep group table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert  to %
+  adorn_percentages(denominator = "col") %>%
+  # long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Percent") %>%
+  # get the most abundant species in Sanguinis, Mitis, and Anginosus groups
+  group_by(Library_ID, Clade) %>%
+  arrange(Library_ID, Clade, desc(Percent))  %>%
+  # get cumulative percentage of species per Clade per Library_ID
+  mutate(Percent = Percent * 10000) %>%
+  # get the top 3 taxa for each Clade
+  slice_head(n = 3) %>%
+  ungroup() %>%
+  filter(str_detect(Clade, "Sanguinis|Mitis|Anginosus")) %>%
+  select(Species) %>%
+  unique() %>%
+  arrange(Species)
+  
+```
+
+
+```{r heatmap_no_pacific_by_clr}
+
+strep_raw <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # only Strep species
+  full_join(., gtdb_clades, by = "Species") %>%
+  select(Clade, Species, everything()) %>%
+  filter(str_detect(Clade, "Sanguinis|Anginosus")) %>%
+  column_to_rownames("Species") %>%
+  select(-Clade)
+  
+# CLR-transform the table for plotting
+strep_raw_clr <- compositions::clr(strep_raw)
+strep_raw_clr <- as.data.frame.matrix(strep_raw_clr)
+
+# strep_raw_clr %>%
+#   rownames_to_column("Species") %>%
+#   select(Species, everything()) %>%
+#   pivot_longer(!Species, names_to = "Library_ID", values_to = "CLR") %>%
+#   mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+#   # remove poorly-preserved samples
+#   filter(!str_detect(Library_ID, poor_samples %>% str_c(collapse = "|"))) %>%
+#   mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+#          Species = fct_relevel(Species, sp_order)) %>%
+#   arrange(Species) %>%
+#   ggplot(., aes(Library_ID, Species, fill = CLR)) +
+#     geom_tile() +
+#     scale_fill_distiller(palette = "RdBu") +
+#     # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+#     theme_minimal(base_size = 12) +
+#     # theme(axis.text.x = element_blank()) +
+#     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+#     theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+#           axis.title.y = element_blank(),
+#           legend.position = "left") +
+#      scale_y_discrete(limits=rev) +
+#      ylab("Percent") +
+#      xlab("Sample")
+
+
+strep_sp_all <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # convert counts to proportions to normalize across all studies
+  adorn_percentages(denominator = "col") %>%
+  full_join(., gtdb_clades, by = "Species") %>%
+  select(Clade, Species, everything()) %>%
+  filter(str_detect(Clade, "Sanguinis|Anginosus")) %>%  
+  select(-Clade) %>%
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Percent") %>%
+  # convert proportion from adorn_percentages to a percent
+  mutate(Percent = Percent * 100) %>%
+  mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+  # remove poorly-preserved samples
+  filter(!str_detect(Library_ID, poor_samples %>% str_c(collapse = "|"))) %>%
+  # add 1 for log transform
+  mutate(Percent = Percent + 1) %>%
+  mutate(logPercent = log10(Percent)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Species = fct_relevel(Species, sp_order)) %>%
+  arrange(Species, Library_ID) %>%
+  ggplot(., aes(Library_ID, Species, fill = logPercent)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "Blues", direction=-1) +
+    # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 8) +
+    theme(axis.text.x = element_blank()) +
+    # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+          axis.title.y = element_blank(),
+          legend.position = "left") +
+     scale_y_discrete(limits=rev) +
+     ylab("Percent") +
+     xlab("Sample")
+strep_sp_all
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S14/strep_species_all.pdf", plot = strep_sp_all, device = "pdf",
+#        scale = 1, width = 10, height = 4, units = c("in"), dpi = 300)
+
+```
+
+```{r}
+hm_strep_sp_ac <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # convert counts to proportions to normalize across all studies
+  adorn_percentages(denominator = "col") %>%
+  full_join(., gtdb_clades, by = "Species") %>%
+  select(Clade, Species, everything()) %>%
+  filter(str_detect(Clade, "Sanguinis|Anginosus"),
+         !str_detect(Species, "_|sp")) %>%  
+  select(-Clade) %>%
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Percent") %>%
+  # convert proportion from adorn_percentages to a percent
+  mutate(Percent = Percent * 100) %>%
+  mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+  # remove poorly-preserved samples
+  filter(!str_detect(Library_ID, poor_samples %>% str_c(collapse = "|"))) %>%
+  # add 1 for log transform
+  mutate(Percent = Percent + 1) %>%
+  mutate(logPercent = log10(Percent)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Species = fct_relevel(Species, "S. cristatus", "S. sanguinis","S. gordonii","S. sinensis","S. constellatus","S. anginosus","S. intermedius")) %>%
+  arrange(Species, Library_ID) %>%
+  ggplot(., aes(Species, Library_ID, fill = logPercent)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "Blues", direction=-1) +
+    # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 8) +
+    theme(axis.text.y = element_blank()) +
+    # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+          axis.title.y = element_blank(),
+          legend.position = "left") +
+     scale_y_discrete(limits=rev) +
+     ylab("Percent") +
+     xlab("Sample")
+
+hm_strep_sp_ac
+
+# ggsave("./06-publication/main_figures/Figure_XX6/hm_strep_species_ac.pdf", plot = hm_strep_sp_ac, device = "pdf",
+#        scale = 1, width = 2, height = 7, units = c("in"), dpi = 300)
+
+
+```
+
+
+```{r heatmap_no_pacific_by_clr}
+
+strep_raw <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # only Strep species
+  full_join(., gtdb_clades, by = "Species") %>%
+  select(Clade, Species, everything()) %>%
+  filter(str_detect(Clade, "Sanguinis|Anginosus")) %>%
+  column_to_rownames("Species") %>%
+  select(-Clade)
+  
+# CLR-transform the table for plotting
+strep_raw_clr <- compositions::clr(strep_raw)
+strep_raw_clr <- as.data.frame.matrix(strep_raw_clr)
+
+# strep_raw_clr %>%
+#   rownames_to_column("Species") %>%
+#   select(Species, everything()) %>%
+#   pivot_longer(!Species, names_to = "Library_ID", values_to = "CLR") %>%
+#   mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+#   # remove poorly-preserved samples
+#   filter(!str_detect(Library_ID, poor_samples %>% str_c(collapse = "|"))) %>%
+#   # remove the Pacific samples
+#   filter(!str_detect(Library_ID, pacific %>% str_c(collapse = "|"))) %>%
+#   mutate(Library_ID = fct_relevel(Library_ID, sample_order_no_pacific),
+#          Species = fct_relevel(Species, sp_order)) %>%
+#   arrange(Species) %>%
+#   ggplot(., aes(Library_ID, Species, fill = CLR)) +
+#     geom_tile() +
+#     scale_fill_distiller(palette = "RdBu") +
+#     # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+#     theme_minimal(base_size = 12) +
+#     # theme(axis.text.x = element_blank()) +
+#     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+#     theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+#           axis.title.y = element_blank(),
+#           legend.position = "left") +
+#      scale_y_discrete(limits=rev) +
+#      ylab("Percent") +
+#      xlab("Sample")
+
+# log-transform the data
+strep_raw %>%
+  rownames_to_column("Species") %>%
+  select(Species, everything()) %>%
+  # convert counts to proportions to normalize across all studies
+  adorn_percentages(denominator = "col") %>%
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Percent") %>%
+  mutate(Percent = Percent * 100) %>%
+  mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+  # remove poorly-preserved samples
+  filter(!str_detect(Library_ID, poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  filter(!str_detect(Library_ID, pacific %>% str_c(collapse = "|"))) %>%
+  # add 1 for log transform
+  mutate(Percent = Percent + 1) %>%
+  mutate(logPercent = log10(Percent)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_no_pacific),
+         Species = fct_relevel(Species, sp_order)) %>%
+  arrange(Species) %>%
+  ggplot(., aes(Library_ID, Species, fill = logPercent)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "Blues", direction=-1) +
+    # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 12) +
+    # theme(axis.text.x = element_blank()) +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+          axis.title.y = element_blank(),
+          legend.position = "left") +
+     scale_y_discrete(limits=rev) +
+     ylab("Percent") +
+     xlab("Sample")
+
+
+# pacific samples only
+pacific_species <- strep_raw %>%
+  rownames_to_column("Species") %>%
+  select(Species, everything()) %>%
+  # convert counts to proportions to normalize across all studies
+  adorn_percentages(denominator = "col") %>%
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Percent") %>%
+  mutate(Percent = Percent * 100) %>%
+  mutate(Species = str_replace_all(Species, "Streptococcus","S.")) %>%
+  # remove poorly-preserved samples
+  filter(!str_detect(Library_ID, poor_samples %>% str_c(collapse = "|"))) %>%
+  # remove the Pacific samples
+  filter(str_detect(Library_ID, pacific %>% str_c(collapse = "|"))) %>%
+  # add 1 for log transform
+  mutate(Percent = Percent + 1) %>%
+  mutate(logPercent = log10(Percent)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Species = fct_relevel(Species, sp_order)) %>%
+  arrange(Species) %>%
+  ggplot(., aes(Library_ID, Species, fill = logPercent)) +
+    geom_tile() +
+    scale_fill_distiller(palette = "Blues", direction=-1) +
+    # scale_fill_gradient2(midpoint = 0, low = "#4A6FE3", mid = "#f7f7f7", high = "#D33F6A") +
+    theme_minimal(base_size = 8) +
+    theme(axis.text.x = element_blank()) +
+    # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    theme(plot.margin = margin(0, 0, 0, 0, "pt"),
+          # axis.title.y = element_blank(),
+          legend.position = "right") +
+     scale_y_discrete(limits=rev) +
+     ylab("Species") +
+     xlab("Sample")
+pacific_species
+
+```
+
+```{r}
+# get representative S. sinensis and S. sanguinis genomes
+Sss_genomes <- fread("./00-documentation/sinensis_sanguinis_r202.tsv")
+
+# get all sinensis genomes (only 4) and a representative of each sanguinis genome (9 total)
+# and write out the list to be able to download them with ncbi_datasets
+# Sss_genomes %>%
+#   select(gtdb_genome_representative, gtdb_taxonomy) %>%
+#   distinct() %>%
+#   bind_rows(., Sss_genomes %>%
+#             select(accession, gtdb_taxonomy) %>%
+#             filter(str_detect(gtdb_taxonomy, "sinensis")) %>%
+#             rename(gtdb_genome_representative = accession)) %>%
+#   distinct() %>%
+#   arrange(gtdb_taxonomy) %>%
+#   select(gtdb_genome_representative) %>%
+#   mutate(gtdb_genome_representative = str_replace_all(gtdb_genome_representative, "RS_",""),
+#          gtdb_genome_representative = str_replace_all(gtdb_genome_representative, "GB_","")) %>%
+#   fwrite(., "./00-documentation/S_sinensis_sanguinis_genome_list.tsv", sep = "\t", quote = F, col.names = F)
+  
+```
+
+
+```{r}
+
+# What studies do we have?
+lib_metadata %>%
+  filter(Sample_group == "ancient_calculus") %>%
+  select(Study) %>%
+  unique()
+
+```
+
+
+### Eisenhoffer2020
+```{r strep_clade_props_eisenhoffer2020}
+
+# set the order of samples based on proportion of Sanguinis and agninosis
+# need to get the proportion of each for this
+# then arrange by proportion
+
+sample_order_rs <- anc_calc_strep_sp  %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Eisenhoffer2020
+  column_to_rownames("Species") %>%
+  select(matches(lib_metadata %>% filter(Study == "Eisenhofer2020") %>% pull(Run_accession))) %>%
+  rownames_to_column("Species") %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(-Species) %>%
+  select(Clade, everything()) %>%
+  # long-format
+  pivot_longer(!Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  # sum together all species per group
+  group_by(Library_ID, Clade) %>%
+  summarize(Reads = sum(Counts)) %>%
+  # transpose
+  pivot_wider(names_from = "Clade", values_from = "Reads") %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  full_join(., poor_samples %>% as_tibble(.) %>% rename(Library_ID = 1) %>% mutate(Preservation = "Poor")) %>%
+  mutate(Preservation = ifelse(is.na(Preservation), "Good",Preservation)) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  arrange(Preservation, desc(Sanguinis), Anginosus) %>%
+  pull(Library_ID)
+
+
+eisenhoffer2020_clades <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Eisenhoffer2020
+  column_to_rownames("Species") %>%
+  select(matches(lib_metadata %>% filter(Study == "Eisenhofer2020") %>% pull(Run_accession))) %>%
+  rownames_to_column("Species") %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID",values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ungroup() %>%
+  # left_join(poor_df, by = "Library_ID") %>%
+  # mutate(Preservation = ifelse(is.na(Preservation),"Good",Preservation),
+  #        prefix = ifelse(Preservation == "Poor","P-","g")) %>%
+  # select(prefix, Library_ID, everything()) %>%
+  # unite(ID, prefix:Library_ID, sep = "") %>%
+  # rename(Library_ID = ID) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = Clade)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = clade_colors) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # geom_hline(yintercept = 0.5, linetype = "dotted") +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         labs(fill = "Clade") +
+         xlab("Sample") +
+         ggtitle("") 
+eisenhoffer2020_clades
+
+```
+
+```{r rs_strep_proportion_eisenhoffer2020}
+
+strep_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Eisenhoffer2020
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Eisenhofer2020") %>% pull(Run_accession))) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+eisenhoffer2020_strep_prop <- strep_prop %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = genus_colors) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+eisenhoffer2020_strep_prop
+
+```
+
+
+```{r sanguinis_anginosus_eisenhoffer2020}
+
+aardvark <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Eisenhoffer2020
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Eisenhofer2020") %>% pull(Run_accession))) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus_inc = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus", "NonStrep")) %>%
+  left_join(., gtdb_clades , by = "Species") %>%
+  # remove Species column leaving Genus column
+  mutate(Genus = replace_na(as.character(Clade), "NonStrep")) %>%
+  select(Genus, everything()) %>%
+  select(-matches("Species|Clade|Genus_inc")) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  pivot_wider(names_from = "Genus", values_from = "Reads") %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup() %>%
+  # rearrange column order
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, everything()) %>%
+  # now sum counts for columns we're not interested in 
+  mutate(OtherStrep = select(., Bovis:Salivarius) %>% rowSums()) %>%
+  # rearrange column order again and drop the unwanted columns
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, OtherStrep) %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  # order the Library ID by 
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Counts = Counts + 0.0001) %>%
+         # Genus = fct_relevel(Genus, "NonStrep","OtherStrep","Sanguinis","Anginosus")) %>%
+  filter(str_detect(Genus, "Sanguinis|Anginosus")) 
+
+eisenhoffer2020_points <- aardvark%>%
+  arrange(Library_ID) %>%
+  mutate(Percent = Counts * 100) %>%
+  mutate(Library_ID = fct_drop(Library_ID)) %>%
+  ggplot(., aes(x = Library_ID, y = Percent, shape = Genus, bg = Genus)) +
+         geom_point(size = 3, color = "grey50") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#fee090","#a50026")) +
+         scale_shape_manual(values = c(21,24)) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         scale_y_log10() +
+         labs(fill = "Clade", shape = "Clade") +
+         ylab("Percent") +
+         ggtitle("")
+eisenhoffer2020_points
+
+```
+
+### Pacific
+```{r strep_clade_props_pacific}
+
+# set the order of samples based on proportion of Sanguinis and agninosis
+# need to get the proportion of each for this
+# then arrange by proportion
+
+sample_order_rs <- anc_calc_strep_sp  %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Pacific
+  column_to_rownames("Species") %>%
+  select(matches(lib_metadata %>% filter(Study == "Pacific") %>% pull(Sample_alias))) %>%
+  rownames_to_column("Species") %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(-Species) %>%
+  select(Clade, everything()) %>%
+  # long-format
+  pivot_longer(!Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  # sum together all species per group
+  group_by(Library_ID, Clade) %>%
+  summarize(Reads = sum(Counts)) %>%
+  # transpose
+  pivot_wider(names_from = "Clade", values_from = "Reads") %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  full_join(., poor_samples %>% as_tibble(.) %>% rename(Library_ID = 1) %>% mutate(Preservation = "Poor")) %>%
+  mutate(Preservation = ifelse(is.na(Preservation), "Good",Preservation)) %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  arrange(Preservation, desc(Sanguinis), Anginosus)%>%
+  pull(Library_ID)
+
+
+pacific_clades <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Pacific
+  column_to_rownames("Species") %>%
+  select(matches(lib_metadata %>% filter(Study == "Pacific") %>% pull(Sample_alias))) %>%
+  rownames_to_column("Species") %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID",values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = Clade)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 10) +
+         scale_fill_manual(values = clade_colors) +
+         theme(axis.text.x = element_blank(),
+               # element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # geom_hline(yintercept = 0.5, linetype = "dotted") +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("") +
+         labs(fill = "Clade") +
+         ggtitle("") 
+pacific_clades
+
+```
+
+```{r rs_strep_proportion_pacific}
+
+strep_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Pacific
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Pacific") %>% pull(Sample_alias))) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+pacific_strep_prop <- strep_prop %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 10) +
+         scale_fill_manual(values = genus_colors) +
+         theme(axis.text.x = element_blank(),
+                 #. element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("") +
+        ggtitle("")
+pacific_strep_prop
+
+```
+
+```{r}
+
+pac_methano <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Pacific
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Pacific") %>% pull(Sample_alias))) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Methanobrevibacter"),"Methanobrevibacter","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+pac_methano_plot <- pac_methano %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Methanobrevibacter")) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 10) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank(),
+                 #. element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("") +
+        ggtitle("")
+
+```
+
+```{r}
+
+pac_desulfo <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Pacific
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Pacific") %>% pull(Sample_alias))) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Desulfobulbus"),"Desulfobulbus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+pac_desulfo_plot <- pac_desulfo %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Desulfobulbus")) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 10) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank(),
+                 #. element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("") +
+        ggtitle("")
+
+
+pacific_strep_prop / pac_methano_plot / pac_desulfo_plot +
+plot_layout(heights = c(1,1,1))
+
+```
+
+```{r sanguinis_anginosus_pacific}
+
+aardvark <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Pacific
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Pacific") %>% pull(Sample_alias))) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus_inc = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus", "NonStrep")) %>%
+  left_join(., gtdb_clades , by = "Species") %>%
+  # remove Species column leaving Genus column
+  mutate(Genus = replace_na(as.character(Clade), "NonStrep")) %>%
+  select(Genus, everything()) %>%
+  select(-matches("Species|Clade|Genus_inc")) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  pivot_wider(names_from = "Genus", values_from = "Reads") %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup() %>%
+  # rearrange column order
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, everything()) %>%
+  # now sum counts for columns we're not interested in 
+  mutate(OtherStrep = select(., Bovis:Salivarius) %>% rowSums()) %>%
+  # rearrange column order again and drop the unwanted columns
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, OtherStrep) %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  # order the Library ID by 
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Counts = Counts + 0.0001) %>%
+         # Genus = fct_relevel(Genus, "NonStrep","OtherStrep","Sanguinis","Anginosus")) %>%
+  filter(str_detect(Genus, "Sanguinis|Anginosus")) 
+
+pacific_points <- aardvark%>%
+  arrange(Library_ID) %>%
+  mutate(Percent = Counts * 100) %>%
+  mutate(Library_ID = fct_drop(Library_ID)) %>%
+  ggplot(., aes(x = Library_ID, y = Percent, shape = Genus, bg = Genus)) +
+         geom_point(size = 1.0, color = "grey50") + # , color = "black"
+         theme_minimal(base_size = 10) +
+         scale_fill_manual(values = c("#fee090","#a50026")) +
+         scale_shape_manual(values = c(21,24)) +
+         theme(
+               axis.text.x = element_blank(),
+               # axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+               axis.text = element_text(size = 8)) +
+         scale_y_log10() +
+         labs(fill = "Clade", shape = "Clade") +
+         ylab("Percent") +
+         xlab("Sample") +
+         ggtitle("")
+pacific_points
+
+```
+
+
+```{r}
+pacific_strep_plots <- pacific_clades / pacific_strep_prop / pacific_points / pacific_species +
+  plot_layout(heights = c(1,1,1,1))
+
+pacific_strep_plots
+
+ggsave("./06-publication/supplemental_figures/Sup_fig_S7/strep_props_pacific.pdf", plot = pacific_strep_plots, device = "pdf",
+       scale = 1, width = 6, height = 8, units = c("in"), dpi = 300)
+
+```
+
+### Velsko2022
+```{r strep_clade_props_velsko2022}
+
+# set the order of samples based on proportion of Sanguinis and agninosis
+# need to get the proportion of each for this
+# then arrange by proportion
+
+sample_order_rs <- anc_calc_strep_sp  %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Velsko2022
+  column_to_rownames("Species") %>%
+  select(matches(lib_metadata %>% filter(Study == "Velsko2022") %>% pull(Sample_alias))) %>%
+  # remove CMB for AHC figure
+  select(-matches("CMB|ELR|IVE")) %>%
+  rownames_to_column("Species") %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(-Species) %>%
+  select(Clade, everything()) %>%
+  # long-format
+  pivot_longer(!Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  # sum together all species per group
+  group_by(Library_ID, Clade) %>%
+  summarize(Reads = sum(Counts)) %>%
+  # transpose
+  pivot_wider(names_from = "Clade", values_from = "Reads") %>%
+  # convert table to proportions
+  adorn_percentages(denominator = "row") %>%
+  # arrange by Sanguinis and for the ones w/o Sanguinis, by Anginosus
+  arrange(desc(Sanguinis), Anginosus)%>%
+  pull(Library_ID)
+
+
+middenbeemster_clades <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Velsko2022
+  column_to_rownames("Species") %>%
+  select(matches(lib_metadata %>% filter(Study == "Velsko2022") %>% pull(Sample_alias))) %>%
+  # remove CMB for AHC figure
+  select(-matches("CMB|ELR|IVE")) %>%
+  rownames_to_column("Species") %>%
+  filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID",values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ggplot(., aes(x = Library_ID, y = Count_sum, fill = Clade)) +
+         geom_bar(position = "fill", stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 8) +
+         scale_fill_manual(values = clade_colors) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         labs(fill = "Clade") +
+         xlab("") +
+         ggtitle("") 
+middenbeemster_clades
+
+```
+
+```{r rs_strep_proportion_velsko2022}
+
+strep_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Velsko2022
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Velsko2022") %>% pull(Sample_alias))) %>%
+  # remove CMB for AHC figure
+  select(-matches("CMB|ELR|IVE")) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+middenbeemster_strep_prop <- strep_prop %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 8) +
+         scale_fill_manual(values = genus_colors) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         ylab("Percent") +
+         xlab("") +
+        ggtitle("")
+middenbeemster_strep_prop
+
+```
+
+
+```{r sanguinis_anginosus_velsko2022}
+
+aardvark <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # select only Velsko2022
+  column_to_rownames("Lineage") %>%
+  select(matches(lib_metadata %>% filter(Study == "Velsko2022") %>% pull(Sample_alias))) %>%
+  # remove CMB for AHC figure
+  select(-matches("CMB|ELR|IVE")) %>%
+  rownames_to_column("Lineage") %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus_inc = ifelse(str_detect(Species,"Streptococcus"),"Streptococcus", "NonStrep")) %>%
+  left_join(., gtdb_clades , by = "Species") %>%
+  # remove Species column leaving Genus column
+  mutate(Genus = replace_na(as.character(Clade), "NonStrep")) %>%
+  select(Genus, everything()) %>%
+  select(-matches("Species|Clade|Genus_inc")) %>%
+  # convert to long format
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  pivot_wider(names_from = "Genus", values_from = "Reads") %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup() %>%
+  # rearrange column order
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, everything()) %>%
+  # now sum counts for columns we're not interested in 
+  mutate(OtherStrep = select(., Bovis:Salivarius) %>% rowSums()) %>%
+  # rearrange column order again and drop the unwanted columns
+  select(Library_ID, NonStrep, Sanguinis, Anginosus, OtherStrep) %>%
+  pivot_longer(!Library_ID, names_to = "Genus", values_to = "Counts") %>%
+  # order the Library ID by 
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs),
+         Counts = Counts + 0.0001) %>%
+         # Genus = fct_relevel(Genus, "NonStrep","OtherStrep","Sanguinis","Anginosus")) %>%
+  filter(str_detect(Genus, "Sanguinis|Anginosus")) 
+
+middenbeemster_points <- aardvark%>%
+  arrange(Library_ID) %>%
+  mutate(Percent = Counts * 100) %>%
+  mutate(Library_ID = fct_drop(Library_ID)) %>%
+  ggplot(., aes(x = Library_ID, y = Percent, shape = Genus, bg = Genus)) +
+         geom_point(size = 0.5, color = "grey50") + # , color = "black"
+         theme_minimal(base_size = 8) +
+         scale_fill_manual(values = c("#fee090","#a50026")) +
+         scale_shape_manual(values = c(21,24)) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         scale_y_log10() +
+         labs(fill = "Clade", shape = "Clade") +
+         ylab("Percent") +
+         xlab("Sample") +
+         ggtitle("")
+middenbeemster_points
+
+```
+
+```{r}
+strep_plots_mid <- middenbeemster_clades / middenbeemster_strep_prop / middenbeemster_points +
+  plot_layout(heights = c(1,1,1))
+
+strep_plots_mid
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

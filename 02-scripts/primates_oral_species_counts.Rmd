@@ -1,0 +1,821 @@
+---
+title: "All primate oral sample species counts"
+author: "Irina Velsko"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output:
+    github_document:
+        fig_width: 8
+        fig_height: 6
+        toc: true
+---
+
+```{r load_libraries, echo = F, message = F}
+library(knitr)
+library(data.table)
+library(janitor)
+library(tidyverse)
+library(patchwork)
+opts_chunk$set(echo=F, warning=F, message=F, dpi=150)
+```
+
+Set the working directory of the notebook to the parent directory of the 
+notebook itself.  
+
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+
+```{r}
+# set colors to resemble James' figure
+
+clade_colors <- c("Sanguinis" = "#a50026",
+                  "Mitis" = "#d73027",
+                  "Salivarius" = "#f46d43",
+                  "Anginosus" = "#fee090",
+                  "Bovis" = "#abd9e9",
+                  "Pyogenic" = "#74add1",
+                  "Mutans" = "#4575b4",
+                  "Oral_other" = "#313695",
+                  "Other" = "#4d4d4d",
+                  "Unknown" = "#e0e0e0")
+
+genus_colors <- c("Streptococcus" = "#a50026", "Other" = "#e0e0e0")
+
+```
+
+
+```{r}
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  select(matches("Study|Sample|Host|accession|Age|avg|reads")) %>%
+  filter(!str_detect(Study, "ObregonTito2015|Oh2016|Rampelli2015|Sankaranarayanan2015|Slon2017")) %>%
+  filter(!str_detect(Sample_group,"urban_gut|blank|Bone|Blank")) %>%
+  mutate(Secondary_sample_accession = ifelse(Study == "Velsko2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2023", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "FellowsYates2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Clemente2015", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Lassalle2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Brealey2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eerkens2018", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eisenhoffer2020", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Fagernaes2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Granehaell2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Jacobson2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018_w", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ozga2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Pacific", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Weyrich2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Warinner2014", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Asangba2022", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Neukamm2020", Sample_alias,Secondary_sample_accession)) %>%
+  mutate(Secondary_sample_accession = str_replace_all(Secondary_sample_accession, ".SG1.1","")) %>%
+  mutate(Full_next = ifelse(Study == "Clemente2015","Buccal mucosa - Non-industrial",
+                       ifelse(Study == "Lassalle2017","Saliva - Non-industrial",
+                              ifelse(Study == "Velsko2023", "Plaque - Non-industrial",
+                                     ifelse(Study == "Velsko2018" & Sample_group == "modern_calculus","Calculus - Industrial",
+                                            ifelse(Study == "FellowsYates2021" & Sample_group == "modern_calculus","Calculus - Industrial","Calculus - Ancient")))))) %>%
+  mutate(Full_next = ifelse(Study == "Asangba2022", "NHP - oral swab",
+                            ifelse(Study == "Moraitou2022", "Gorilla calculus",
+                                   ifelse(Study == "Brealey2020", "Gorilla calculus",
+                                          ifelse(Study == "Ozga2019","Chimpanzee calculus",
+                                                 ifelse(Study == "Neukamm2020","Calculus - Ancient",Full_next)))))) %>%
+  mutate(Full_next = ifelse(Study == "HMP2012" & Sample_type == "supraplaque","supraPlaque - Industrial",
+                       ifelse(Study == "HMP2012" & Sample_type == "saliva","Saliva - Industrial",
+                              ifelse(Study  ==  "HMP2012" & Sample_type == "buccal_mucosa","Buccal mucosa - Industrial",
+                                     ifelse(Study ==  "Brito2016","Saliva - Industrial",
+                                            ifelse(Study == "HMP2012" & Sample_type == "subplaque","subPlaque - Industrial",Full_next)))))) %>%
+  # SOMEHOW NEED TO FIX THE SPECIES FOR FELLOWSYATES2021 AND IBERIAN FOR ALL NON-HUMAN SAMPLES
+  mutate(Full_next = ifelse(Study == "FellowsYates2021" & Host == "Gorilla","Gorilla calculus",
+                            ifelse(Study == "FellowsYates2021" & Host == "Chimpanzee","Chimpanzee calculus",
+                                   ifelse(Study == "FellowsYates2021" & Host == "Howler monkey", "Howler calculus",
+                                          ifelse(Study == "Iberian" & Host == "Chimpanzee","Chimpanzee calculus",Full_next))))) %>%
+  mutate(Full = str_replace_all(Full_next, "supra",""),
+         Full = str_replace_all(Full, "sub","")) %>% 
+  # now combine Host and Sample_type in a new column and then replace this in Study for the study_group non_human_primate
+  mutate(host = Host,
+         sampletype = Sample_type) %>%
+  unite(samplehost, host:sampletype, sep = "_") %>%
+  mutate(samplehost = str_replace_all(samplehost, " ", "_")) %>%
+  mutate(Study = ifelse(Sample_type == "oral_swab", samplehost, Study)) %>%
+  mutate(Full_next = fct_relevel(Full_next, "Calculus - Ancient","Calculus - Industrial","subPlaque - Industrial","supraPlaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial")) %>%
+  mutate(Full = fct_relevel(Full, "Calculus - Ancient","Calculus - Industrial","Plaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial"))
+
+
+```
+
+
+## Kraken2 GTDB r202 table
+```{r load_data}
+# read in the species table
+primate_oral_raw <- fread("./05-results/mod_calc.kraken2.gtdb.report_mpa.tsv") %>%
+  full_join(., fread("./05-results/ind_plaque.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/ind_buccal_mucosa.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/ind_saliva.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nonind_plaque.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nonind_buccal_mucosa.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nonind_saliva.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/baboon_calc.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/gorilla_calc.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/howler_calc.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nhp_os.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  replace(is.na(.), 0)
+
+# read in the file names to add as column headers
+primate_names <- fread("./05-results/mod_calc_names.tsv", header = F) %>%
+  bind_rows(., fread("./05-results/indpq_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/indbm_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/indsal_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nonindpq_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nonindbm_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nonindsal_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/baboon_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/gorilla_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/howler_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nhp_os_names.tsv", header = F)) %>%
+  pull()
+
+# add the sample names to the table
+# move the lineage to the rownames so only samples are left as columns
+primate_oral_raw <- primate_oral_raw %>%
+  column_to_rownames("#Classification")
+
+# add the sample names
+colnames(primate_oral_raw) <- primate_names
+
+# move the lineage back to a column
+primate_oral_raw <- primate_oral_raw %>%
+  rownames_to_column("Lineage")
+
+# now add the chimpanzees
+primate_oral_raw <- primate_oral_raw %>%
+  full_join(., fread("./05-results/anc_calc.kraken2.gtdb.report_mpa.tsv.gz"), by = "Lineage") %>%
+  full_join(., fread("./05-results/chimp_calc.kraken2.gtdb.report_mpa.tsv", sep = ","), by = "Lineage") %>%
+  replace(is.na(.), 0) %>% 
+  # remove remaining blanks
+  select(-c("BK1","BK2","BK3","BK4")) %>%
+  select(-matches("EXB|LIB"))
+
+# fix the Library_ID names for Fagernaes2022
+colnames(primate_oral_raw) <- gsub(".SG1","", colnames(primate_oral_raw))
+
+testfile <- primate_oral_raw %>%
+  slice_head(n = 1) %>%
+  pivot_longer(!Lineage, names_to = "Library_ID", values_to = "Counts") %>%
+  arrange(Library_ID) %>%
+  select(Library_ID) %>%
+  unique()
+
+# read in poorly preserved sample list to remove them
+poor_primate <- fread("./05-results/cuperdec_anc_calc_poor_samples.tsv") %>%
+  bind_rows(., fread("./05-results/cuperdec_ind_sal_poor_samples.tsv")) %>%
+  bind_rows(., fread("./05-results/cuperdec_primate_oral_poor_samples.tsv")) %>%
+  pull(Sample)
+
+# filter to have only Streptococcus species
+primate_oral_raw_sp <- primate_oral_raw %>% 
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  filter(str_detect(Species, "Streptococcus"))
+
+
+# filter to have only species with abundance >= 0.001
+primate_calc_filt <- primate_oral_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B"))%>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.001) %>%
+  select(-Percent, -Total)
+
+```
+
+```{r}
+# filter the whole table together
+# number of species detected in each sample
+# needs to be split into the different oral sites so the % is per site and not overall
+primate_species_counts <- primate_oral_raw %>% 
+  # remove remaining blanks
+  # remove poorly-preserved samples
+  select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B")) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.001) %>%
+  select(-Percent, -Total) %>%
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  mutate(Counts = ifelse(Counts > 0,1,0)) %>%
+  pivot_wider(names_from = "Species", values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  select(Secondary_sample_accession,Total) %>%
+  rename(Species_counts = Total) %>%
+  mutate(Secondary_sample_accession = str_replace_all(Secondary_sample_accession, ".SG1",""))
+
+
+primate_species_counts %>%
+  left_join(., lib_metadata %>%
+              select(Secondary_sample_accession, Study), by = "Secondary_sample_accession") %>%
+  distinct() %>%
+  as_tibble() %>%
+  arrange(Study, Secondary_sample_accession)
+
+
+```
+
+## Alpha diversity
+To check if the Brito saliva samples have lower alpha-diversity b/c they're shallowly sequenced over multiple libraries
+```{r, eval = F}
+
+sp_counts <- primate_oral_raw %>% 
+  # remove poorly-preserved samples
+  # select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B"))%>%
+  # adjust the lineage to have only species
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  # convert to a binary presence/absence table
+  mutate(Counts = ifelse(Counts > 0,1,0)) %>%
+  # convert back to a wide table
+  pivot_wider(names_from = Species, values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  select(Library_ID, Total)
+
+# fwrite(sp_counts, "./05-results/primate_species_counts.tsv", quote = F, sep = "\t")
+
+```
+
+```{r}
+lib_metadata %>%
+  select(Study) %>%
+  distinct()
+
+```
+
+
+```{r oral_swab_species_orders, eval = F}
+
+Envmt_decontam <- lib_metadata %>%
+  select(Study) %>%
+  unique() %>%
+  filter(str_detect(Study, "oral_swab")) %>%
+  pull()
+
+oral_swab_species_orders <- lapply(Envmt_decontam, function(envmt) {
+mod_human_counts_filt <- primate_oral_raw %>%  # 
+  # remove poorly-preserved samples
+  # select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B"))%>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  left_join(., lib_metadata %>%
+              select(Secondary_sample_accession, Study)) %>%
+  filter(Study == !!envmt) %>%
+  select(-Study) %>%
+  unique() %>%
+  pivot_wider(names_from = "Secondary_sample_accession", values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.001) %>%
+  select(-Percent, -Total) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  # convert to a binary presence/absence table
+  mutate(Counts = ifelse(Counts > 0,1,0)) %>%
+  # convert back to a wide table
+  pivot_wider(names_from = Species, values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  select(Secondary_sample_accession, Total)
+}) %>%
+  bind_rows(.)
+
+```
+
+```{r human_species_orders, eval = F}
+
+Envmt_decontam <- lib_metadata %>%
+  select(Study) %>%
+  unique() %>%
+  filter(!str_detect(Study, "oral_swab|HMP2012")) %>%
+  pull()
+
+species_orders <- lapply(Envmt_decontam, function(envmt) {
+mod_human_counts_filt <- primate_oral_raw %>%  # 
+  # remove poorly-preserved samples
+  # select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B"))%>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  left_join(., lib_metadata %>%
+              select(Secondary_sample_accession, Study)) %>%
+  filter(Study == !!envmt) %>%
+  select(-Study) %>%
+  unique() %>%
+  pivot_wider(names_from = "Secondary_sample_accession", values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.001) %>%
+  select(-Percent, -Total) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  # convert to a binary presence/absence table
+  mutate(Counts = ifelse(Counts > 0,1,0)) %>%
+  # convert back to a wide table
+  pivot_wider(names_from = Species, values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  select(Secondary_sample_accession, Total)
+}) %>%
+  bind_rows(.)
+
+```
+
+
+```{r hmp_species_orders, eval = F}
+# Now the HMP2012 data needs to be added, but it needs to be filtered so that the 3 oral sites are each calculated independently
+
+Envmt_decontam <- lib_metadata %>%
+  select(Study, Full) %>%
+  unique() %>%
+  filter(Study == "HMP2012") %>%
+  mutate(Full = as.character(Full)) %>%
+  filter(Full != "Industrial") %>%
+  pull(Full)
+
+hmp_species_orders <- lapply(Envmt_decontam, function(envmt) {
+mod_human_counts_filt <- primate_oral_raw %>%  # 
+  # remove poorly-preserved samples
+  # select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B"))%>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  left_join(., lib_metadata %>%
+              select(Secondary_sample_accession, Full, Study)) %>%
+  filter(Study == "HMP2012") %>%
+  filter(Full == !!envmt) %>%
+  select(-Full, -Study) %>%
+  unique() %>%
+  pivot_wider(names_from = "Secondary_sample_accession", values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.001) %>%
+  select(-Percent, -Total) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Counts") %>%
+  # convert to a binary presence/absence table
+  mutate(Counts = ifelse(Counts > 0,1,0)) %>%
+  # convert back to a wide table
+  pivot_wider(names_from = Species, values_from = "Counts") %>%
+  adorn_totals(where = "col") %>%
+  select(Secondary_sample_accession, Total)
+}) %>%
+  bind_rows(.)
+
+# and combine the HMP and not-HMP tables together for a final table
+mod_species_filtered_counts <- species_orders %>%
+  bind_rows(., hmp_species_orders) %>%
+  bind_rows(., oral_swab_species_orders)
+
+fwrite(mod_species_filtered_counts, "./05-results/primate_species_filtered_counts.tsv", sep = "\t", quote = F)
+
+```
+
+```{r}
+# read in the count table from above
+sp_counts <- fread("./05-results/primate_species_counts.tsv")
+
+species_filtered_counts <- fread("./05-results/primate_species_filtered_counts.tsv")
+
+```
+
+
+```{r}
+
+# full dataset
+sp_counts %>%
+  left_join(., lib_metadata %>%
+              select(Study, Full, Secondary_sample_accession) %>%
+              rename(Library_ID = Secondary_sample_accession) %>%
+              distinct(), by = "Library_ID") %>%
+  ggplot(., aes(x = Study, y = Total, fill = Study)) + 
+  ## add half-violin from {ggdist} package
+  ggdist::stat_halfeye(
+    ## custom bandwidth
+    adjust = .5, 
+    ## adjust height
+    width = .6, 
+    ## move geom to the right
+    justification = -.2, 
+    ## remove slab interval
+    .width = 0, 
+    point_colour = NA
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    ## remove outliers
+    outlier.color = NA, ## `outlier.shape = NA` works as well
+    color = "grey30"
+  ) +
+  ## add dot plots from {ggdist} package
+  ggdist::stat_dots(
+    ## orientation to the left
+    side = "left", 
+    ## move geom to the left
+    justification = 1.1, 
+    ## adjust grouping (binning) of observations 
+    binwidth = 1
+  ) + 
+  ## remove white space on the left
+  coord_cartesian(xlim = c(0, NA)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  facet_grid(~Full, scales = "free_x", space = 'free')
+  # +
+  # scale_fill_manual(values = Time_period_colors)
+
+```
+
+```{r}
+
+# total species
+total_species_plot <- sp_counts %>%
+  left_join(., lib_metadata %>%
+            select(Study, Full, Secondary_sample_accession) %>%
+            rename(Library_ID = Secondary_sample_accession) %>%
+            distinct(), by = "Library_ID") %>%
+  # get rid of the Iberian data
+  filter(!is.na(Study)) %>%
+  # filter(str_detect(Library_ID, "Abusir"))
+  ggplot(., aes(x = Study, y = Total, fill = Full)) +
+         geom_boxplot(outlier.size = 0.5) +
+         geom_jitter(size = 0.5, alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         # scale_y_continuous(trans='log10') +
+         # scale_y_continuous(trans='pseudo_log', breaks=scales::pretty_breaks(n=8)) +
+         # scale_y_continuous(trans='pseudo_log', breaks=c(1,5,10,20,50,100,200,400,600,1000,1500,2000,3000,4000)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=8)) +
+         theme(axis.text.x = element_blank()) +
+         ylab("Total species") +
+         ggtitle("") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+total_species_plot
+
+# filtered species
+filtered_species_plot <- species_filtered_counts %>%
+  left_join(., lib_metadata %>%
+            select(Study, Full, Secondary_sample_accession) %>%
+            distinct(), by = "Secondary_sample_accession") %>%
+  # get rid of the Iberian data
+  filter(!is.na(Study)) %>%
+  ggplot(., aes(x = Study, y = Total, fill = Full)) +
+         geom_boxplot(outlier.size = 0.5) +
+         geom_jitter(size = 0.5, alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+         ylab("Total species") +
+         ggtitle("") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+filtered_species_plot
+
+```
+
+```{r species_counts_plot}
+
+sp_counts_diversity_plot <- total_species_plot / filtered_species_plot +
+  plot_layout(heights = c(1,1)) +
+  plot_layout(guides = 'collect')
+  
+sp_counts_diversity_plot
+
+
+```
+
+
+```{r calculate_shannon}
+# calculate Shannon diversity for the samples filtered and not filtered
+# get the Shannon index
+
+# read in the individually-filtered table
+primate_oral_species_individual_filtered <- fread("./05-results/primate_species_filtered_individual_table.tsv")
+
+primate_total.matrix <- as.matrix(primate_oral_raw %>%  # 
+  # remove poorly-preserved samples
+  # select(-matches(poor_primate %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B"))%>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  pivot_wider(names_from = "Species", values_from = "Counts") %>% 
+  column_to_rownames("Library_ID"))
+
+primate_total.shannon <- as.data.frame(vegan::diversity(primate_total.matrix, index = "shannon"))
+names(primate_total.shannon)[1] <- "Shannon_index"
+
+
+primate_filtered.matrix <- as.matrix(primate_oral_raw %>% 
+  select(-matches("CMC032.B"))%>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.001) %>%
+  select(-Percent, -Total) %>% 
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  pivot_wider(names_from = "Species", values_from = "Counts") %>% 
+  column_to_rownames("Library_ID"))
+
+primate_filtered.shannon <- as.data.frame(vegan::diversity(primate_filtered.matrix, index = "shannon"))
+names(primate_filtered.shannon)[1] <- "Shannon_index"
+
+
+primate_filtered_individual.matrix <- as.matrix(primate_oral_species_individual_filtered %>% 
+  pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+  pivot_wider(names_from = "Species", values_from = "Counts") %>% 
+  column_to_rownames("Library_ID"))
+
+primate_filtered_individual.shannon <- as.data.frame(vegan::diversity(primate_filtered_individual.matrix, index = "shannon"))
+names(primate_filtered_individual.shannon)[1] <- "Shannon_index"
+
+
+```
+
+```{r}
+
+primate_shannon <- primate_total.shannon %>%
+  rownames_to_column("Secondary_sample_accession") %>%
+  rename(Total = Shannon_index) %>%
+  full_join(., primate_filtered.shannon %>%
+              rownames_to_column("Secondary_sample_accession") %>%
+              rename(Filtered = Shannon_index)) %>%
+  full_join(., primate_filtered_individual.shannon %>%
+              rownames_to_column("Secondary_sample_accession") %>%
+              rename(Filtered_indiv = Shannon_index)) %>%
+  as_tibble()
+
+```
+
+
+```{r plot_shannon}
+
+shannnon_full_plot <- primate_shannon %>%
+  left_join(., lib_metadata %>%
+            select(Study, Full, Secondary_sample_accession) %>%
+            distinct(), by = "Secondary_sample_accession") %>%
+  # get rid of the Iberian data
+  filter(!is.na(Study)) %>%
+  ggplot(., aes(x = Study, y = Total, fill = Full)) +
+         geom_boxplot(outlier.size = 0.5) +
+         geom_jitter(size = 0.5, alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         scale_y_continuous(breaks=scales::pretty_breaks(n=8), limits = c(0,10)) +
+         theme(axis.text.x = element_blank()) +
+         ylab("Shannon index") +
+         ggtitle("") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+shannnon_full_plot
+
+shannnon_filtered_plot <- primate_shannon %>%
+  left_join(., lib_metadata %>%
+            select(Study, Full, Secondary_sample_accession) %>%
+            distinct(), by = "Secondary_sample_accession") %>%
+  # get rid of the Iberian data
+  filter(!is.na(Study)) %>%
+  ggplot(., aes(x = Study, y = Filtered, fill = Full)) +
+         geom_boxplot(outlier.size = 0.5) +
+         geom_jitter(size = 0.5, alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         scale_y_continuous(breaks=scales::pretty_breaks(n=8), limits = c(0,10)) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+         ylab("Shannon index") +
+         ggtitle("") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+shannnon_filtered_plot
+
+shannnon_filtered_indiv_plot <- primate_shannon %>%
+  left_join(., lib_metadata %>%
+            select(Study, Full, Secondary_sample_accession) %>%
+            distinct(), by = "Secondary_sample_accession") %>%
+  # get rid of the Iberian data
+  filter(!is.na(Study)) %>%
+  ggplot(., aes(x = Study, y = Filtered_indiv, fill = Full)) +
+         geom_boxplot(outlier.size = 0.5) +
+         geom_jitter(size = 0.5, alpha = 0.5, width = 0.2) +
+         theme_minimal(base_size = 10) +
+         scale_y_continuous(breaks=scales::pretty_breaks(n=8), limits = c(0,10)) +
+         theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+         ylab("Shannon index") +
+         ggtitle("") +
+         facet_grid(~Full, scales = "free_x", space = 'free')
+shannnon_filtered_indiv_plot
+
+```
+
+```{r shannon_plot}
+
+alpha_diversity_plot <- shannnon_full_plot / shannnon_filtered_plot +
+  plot_layout(heights = c(1,1)) +
+  plot_layout(guides = 'collect')
+  
+alpha_diversity_plot
+
+
+```
+
+
+Plot a graph of the tail of the species in each sample to see if Brito has a
+longer tail of low-abundance taxa?
+```{r decontam_rank_abund_curve, eval = F}
+
+Envmt_decontam <- lib_metadata %>%
+  select(Study) %>%
+  unique() %>%
+  filter(Study != "HMP2012") %>%
+  pull()
+
+species_decontam_orders <- lapply(Envmt_decontam, function(envmt) {
+malt_species.dataframeL_check <- mod_oral_raw %>%  # 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B")) %>%
+  # take only species-level entries
+  filter(str_detect(Lineage, "s__s__")) %>%
+  # cut the long lineage down to only species
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # convert to relative abundance
+  adorn_percentages(denominator = "col", na.rm = F) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Relab") %>%
+  # add the metadata for filtering
+  left_join(., lib_metadata %>%
+              select(Secondary_sample_accession, Study)) %>%
+  # filter for only 1 study
+  filter(Study == !!envmt) %>%
+  select(-Study) %>%
+  unique() %>%
+  group_by(Species) %>%
+  summarise(mean_relab = mean(Relab)) %>%
+  arrange(desc(mean_relab)) %>%
+  filter(mean_relab > 0) %>%
+  mutate(mean_relab = mean_relab * 100) %>%
+  rownames_to_column("order") %>%
+  mutate(order = as.numeric(order)) %>%
+  mutate(Study = envmt)
+}) %>%
+  bind_rows(.)
+ 
+
+# Plot for the data grouped by Study 
+species_decontam_abundance_curves <- function(df, envt, title_text) {
+      options(scipen = 10)
+      
+    species_abundance_plot <- species_decontam_orders %>%
+        filter(Study == envt) %>%
+           ggplot(., aes(x=order, y=mean_relab)) +
+           geom_point() +
+           theme_minimal() +
+           scale_y_log10() +
+           # geom_hline(yintercept=0.01, linetype="dashed", color = "red") +
+           # xlim(NA, 500) +
+           ylab("mean relative abundance") +
+           xlab("species order") +
+           ggtitle(title_text) + 
+           theme(plot.title = element_text(size = 8))
+  
+    return(species_abundance_plot)
+}
+
+species_decontam_abundance_curves(species_decontam_orders, "Brito2016", "Brito2016")
+species_decontam_abundance_curves(species_decontam_orders, "Clemente2015", "Clemente2015")
+species_decontam_abundance_curves(species_decontam_orders, "FellowsYates2021", "FellowsYates2021")
+species_decontam_abundance_curves(species_decontam_orders, "Lassalle2017", "Lassalle2017")
+species_decontam_abundance_curves(species_decontam_orders, "Velsko2018", "Velsko2018")
+species_decontam_abundance_curves(species_decontam_orders, "Velsko2023", "Velsko2023")
+
+
+species_decontam_orders %>%
+           ggplot(., aes(x=order, y=mean_relab, color = Study)) +
+           geom_line() +
+           theme_minimal() +
+           scale_y_log10() +
+           # geom_hline(yintercept=0.01, linetype="dashed", color = "red") +
+           # xlim(NA, 500) +
+           ylab("mean relative abundance") +
+           xlab("species order") +
+           theme(plot.title = element_text(size = 8))
+
+
+```
+
+```{r, eval = F}
+# try to do this for all samples instead of grouping by study, and then plot grouped by study
+# so Envmt is the Secondary_sample_accession, and calculation is per sample
+
+Sample_list <- lib_metadata %>%
+  select(Secondary_sample_accession) %>%
+  unique() %>%
+  pull()
+
+species_orders_per_sample <- lapply(Sample_list, function(envmt) {
+per_sample_orders <- mod_oral_raw %>%  # 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  select(-matches("CMC032.B")) %>%
+  # take only species-level entries
+  filter(str_detect(Lineage, "s__s__")) %>%
+  # cut the long lineage down to only species
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # convert to relative abundance
+  adorn_percentages(denominator = "col", na.rm = F) %>%
+  # convert to a long table
+  pivot_longer(!Species, names_to = "Secondary_sample_accession", values_to = "Relab") %>%
+  # add the metadata for filtering
+  left_join(., lib_metadata %>%
+              select(Secondary_sample_accession, Study)) %>%
+  # filter for only 1 study
+  filter(Secondary_sample_accession == !!envmt) %>%
+  # select(-Study) %>%
+  unique() %>%
+  arrange(desc(Relab)) %>%
+  filter(Relab > 0) %>%
+  mutate(Relab = Relab * 100) %>%
+  rownames_to_column("order") %>%
+  mutate(order = as.numeric(order)) %>%
+  mutate(Secondary_sample_accession = envmt)
+}) %>%
+  bind_rows(.)
+
+
+
+# Make a new plot for the data with individual samples
+# Plot for the data grouped by Study 
+species_orders_per_sample %>%
+  left_join(., lib_metadata %>%
+                select(Secondary_sample_accession, Full), by = "Secondary_sample_accession") %>%
+  mutate(Study = ifelse(Study == "HMP2012" & str_detect(Full, "Plaque"),"HMP2012 - Plaque",
+                        ifelse(Study == "HMP2012" & str_detect(Full, "Saliva"),"HMP2012 - Saliva",
+                               ifelse(Study == "HMP2012" & str_detect(Full, "mucosa"),"HMP2012 - BM",Study)))) %>% 
+        ggplot(., aes(x=order, y=Relab, color = Full)) +
+        geom_line() +
+        theme_minimal() +
+        scale_y_log10() +
+        # geom_hline(yintercept=0.01, linetype="dashed", color = "red") +
+        xlim(NA, 500) +
+        ylab("mean relative abundance") +
+        xlab("species order") +
+        theme(plot.title = element_text(size = 8)) +
+        facet_wrap(~Study)
+  
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

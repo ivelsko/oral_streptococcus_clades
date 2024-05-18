@@ -1,0 +1,223 @@
+---
+title: "Modern human oral sample cumulative decay curves from Kraken2 GTDB r202 database"
+author: "Irina Velsko"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output: github_document
+---
+
+```{r load_libraries, echo = F, message = F}
+library(knitr)
+library(janitor)
+library(cuperdec)
+library(data.table)
+library(magrittr) ## for pipes!
+library(dplyr) # for mutate()!
+library(tidyverse)
+```
+
+Set the working directory of the notebook to the parent directory of the 
+notebook itself.  
+
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+Read in the modern human tables.
+```{r load_data}
+# read in the species table
+mod_human_raw <- fread("./05-results/mod_calc.kraken2.gtdb.report_mpa.tsv") %>%
+  full_join(., fread("./05-results/ind_plaque.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/ind_buccal_mucosa.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/ind_saliva.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nonind_plaque.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nonind_buccal_mucosa.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  full_join(., fread("./05-results/nonind_saliva.kraken2.gtdb.report_mpa.tsv"), by = "#Classification") %>%
+  replace(is.na(.), 0)
+
+# read in the file names to add as column headers
+mod_names <- fread("./05-results/mod_calc_names.tsv", header = F) %>%
+  bind_rows(., fread("./05-results/indpq_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/indbm_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/indsal_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nonindpq_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nonindbm_names.tsv", header = F)) %>%
+  bind_rows(., fread("./05-results/nonindsal_names.tsv", header = F)) %>%
+  pull()
+
+# add the sample names to the table
+# move the lineage to the rownames so only samples are left as columns
+mod_human_raw <- mod_human_raw %>%
+  column_to_rownames("#Classification")
+
+# add the sample names
+colnames(mod_human_raw) <- mod_names
+
+# move the lineage back to a column
+mod_human_raw <- mod_human_raw %>%
+  rownames_to_column("Lineage")
+
+# filter to have only species and remove all species with <1000 reads assigned
+# even filtering out taxa with <10000 counts doesn't help
+mod_human_sp <- mod_human_raw %>% 
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(species = str_replace_all(species, "s__s__","")) %>%
+  adorn_totals(where = "col") %>%
+  filter(Total > 1000) %>%
+  select(-Total) %>%
+  arrange(species)
+
+```
+
+
+Load metadata
+```{r load_metadata}
+# mod calculus and sources
+# load("../smoking_calculus/05-results.backup/Metadata_tables.RData")
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  filter(str_detect(Study, "HMP2012|Brito2016|Lassalle2017|Velsko2019|Velsko2023|Clemente2015")) %>%
+  distinct()
+
+```
+
+
+```{r set_database}
+# load the database and convert to a tibble, then clean up dupliate entries
+source_table <- fread("./00-documentation/cuperdec_oral_sources_gtdb_r202.tsv") %>%
+  select(species, Isolation_Source) %>%
+  as_tibble() %>%
+  # remove duplicates
+  distinct()
+  # if there are 2 entries then the species has both an "oral" source and an "other" source
+  # this is b/c at least 1 genome has the isolation source indicated as "oral" in NCBI
+  # since at least 1 genome was isolated from an "oral" site, we can say it's oral
+  # and need to remove the row that has the source as "other"
+source_table <- source_table %>%
+  anti_join(source_table %>%
+            select(species, Isolation_Source) %>% 
+            group_by(species) %>% 
+            count() %>% 
+            filter(n > 1) %>% 
+            select(species) %>% ungroup()) %>%
+  # and then add back those species with an isolation source of "oral"
+  bind_rows(., source_table %>%
+            select(species, Isolation_Source)%>% 
+            group_by(species) %>% 
+            count() %>% 
+            filter(n > 1) %>% 
+            select(species) %>% 
+            ungroup() %>%
+            mutate(Isolation_Source = "oral"))
+
+
+database <- load_database(source_table, target = "oral") %>% print()
+
+```
+
+
+```{r taxatable}
+
+tax_table <- mod_human_sp %>%
+  # need to convert NA to 0
+  mutate_all(~replace(., is.na(.), 0))
+
+taxatable <- load_taxa_table(tax_table) # %>% print()
+
+```
+
+```{r metamap}
+
+metadata <- lib_metadata  %>%
+  # now make the names match what was used in eager and the species tables now have
+  mutate(Run_accession = ifelse(str_detect(Sample_alias, "VLC|JAE"),Sample_alias, Run_accession),
+        Run_accession = ifelse(Study == "HMP2012",Secondary_sample_accession, Run_accession),
+        Run_accession = ifelse(Study == "Brito2016",Secondary_sample_accession, Run_accession),
+        Run_accession = ifelse(Study == "Velsko2023",Sample_alias, Run_accession)) %>%
+  # select only the samples of interest and the sources
+  right_join(., mod_names %>% as_data_frame(.) %>% rename(Run_accession = 1)) %>%
+  select(Sample_group, Sample_type, everything()) %>%
+  unite(Sample_type, Sample_group:Sample_type, sep = " ") %>%
+  mutate(Sample_type = ifelse(str_detect(Run_accession, "JAE|VLC"), "Modern calculus", Sample_type),
+         Sample_type = str_replace_all(Sample_type, "_", " "),
+         Sample_type = str_replace_all(Sample_type, "industrial", "Industrial"),
+         Sample_type = str_replace_all(Sample_type, "non Industrial", "Non-industrial")) %>%
+  mutate(Sample_type = fct_relevel(Sample_type, "Non-industrial saliva", "Non-industrial buccal mucosa", "Non-industrial plaque", "Industrial saliva", "Industrial buccal mucosa", "Industrial supraplaque", "Industrial subplaque", "Modern calculus"))
+
+  
+  
+metadata_map <- load_map(metadata,
+                     sample_col = "Run_accession",
+                     source_col = "Sample_type") # %>% print()
+
+metadata_map %>%
+  distinct() %>%
+  group_by(Sample_Source) %>%
+  count()%>%
+  ungroup()
+  
+
+```
+
+```{r}
+
+taxatable %>% select(Sample) %>% distinct() %>%
+  anti_join(., metadata_map)
+
+```
+
+```{r simple_curve}
+curves <- calculate_curve(taxatable, database = database) %>%
+  print()
+
+plot_cuperdec(curves)
+
+
+
+curves %>%
+  group_by(Sample) %>%
+  slice_min(Rank, n = 20) %>%
+  left_join(., source_table %>%
+              rename(Taxon = species), by = "Taxon")
+
+curves %>%
+  filter(Sample == "JAE014.A0101") %>%
+  left_join(., source_table %>%
+              rename(Taxon = species), by = "Taxon")
+
+
+```
+
+
+```{r metadata_curve}
+plot_cuperdec(curves, metadata_map, restrict_x = 150)
+
+```
+
+```{r adaptive_rank_burnin}
+
+adaptive_rank_burnin_result <- adaptive_burnin_filter(curves, percent_threshold = 60) 
+cd_curve_plot <- plot_cuperdec(curves, metadata_map, adaptive_rank_burnin_result, restrict_x = 250)
+cd_curve_plot
+
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S3/cuperdec_mod_human.png", plot = cd_curve_plot, device = "png",
+#        scale = 1, width = 7, height = 5, units = c("in"), dpi = 300)
+# 
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S3/cuperdec_mod_human.pdf", plot = cd_curve_plot, device = "pdf",
+#        scale = 1, width = 7, height = 5, units = c("in"), dpi = 300)
+
+```
+
+```{r discard_list, eval = F}
+# poorly-preserved samples
+discard_list <- adaptive_rank_burnin_result %>% filter(!Passed) %>%
+  select(Sample)
+discard_list
+
+fwrite(discard_list, "./05-results/cuperdec_ind_sal_poor_samples.tsv", sep = "\t", quote = F)
+
+```
+
+
+
