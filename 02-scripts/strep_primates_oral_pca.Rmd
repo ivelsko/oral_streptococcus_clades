@@ -317,8 +317,8 @@ oral_non_pq_pc12 <- primate_calc_filt.pca.varmet %>%
     ggtitle("Host")
 oral_non_pq_pc12
 
-# ggsave("./06-publication/supplemental_figures/Sup_fig_S18/primate_oral_pc12_hosts.pdf", plot = oral_non_pq_pc12, device = "pdf",
-#        scale = 1, width = 12, height = 5, units = c("in"), dpi = 300)
+ggsave("./06-publication/supplemental_figures/Sup_fig_S18/primate_oral_pc12_hosts.pdf", plot = oral_non_pq_pc12, device = "pdf",
+       scale = 1, width = 12, height = 5, units = c("in"), dpi = 300)
 
 ```
 

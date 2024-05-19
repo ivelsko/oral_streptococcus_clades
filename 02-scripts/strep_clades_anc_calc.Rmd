@@ -428,6 +428,41 @@ ggsave("./06-publication/supplemental_figures/Sup_fig_S6/strep_age_bars.pdf", pl
        scale = 1, width = 10, height = 5, units = c("in"), dpi = 300)
 
 
+# check correlation between sample age and Sanguinis/Anginosus
+age_abund_table <- anc_calc_strep_sp %>%
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  # filter(str_detect(Species, "Streptococcus")) %>%
+  # join with the Strep grup table for plotting
+  inner_join(., gtdb_clades) %>%
+  select(Species, Clade, everything()) %>%
+  # convert to long-format
+  pivot_longer(!Species:Clade, names_to = "Library_ID", values_to = "Counts") %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  dplyr::group_by(Library_ID, Clade) %>%
+  summarize(Count_sum = sum(Counts)) %>%
+  ungroup() %>%
+  group_by(Library_ID) %>%
+  mutate(Percent = Count_sum / sum(Count_sum) * 100) %>%
+  ungroup() %>%
+  filter(Clade == "Sanguinis" | Clade == "Anginosus") %>%
+  select(-Count_sum) %>%
+  pivot_wider(names_from = "Clade", values_from = "Percent") %>%
+  left_join(., lib_metadata_extended %>%
+            rename(Library_ID = Secondary_sample_accession) %>%
+            select(Library_ID, Age_BP) %>%
+            filter(Library_ID %in% sample_order_rs)  %>%
+            mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs))) %>%
+  left_join(., strep_prop, by = "Library_ID")
+
+age_abund_table %>%
+  cor_test(Age_BP, Sanguinis, method = "spearman") %>%
+  bind_rows(age_abund_table %>% cor_test(Age_BP, Anginosus, method = "spearman")) %>%
+  bind_rows(age_abund_table %>% cor_test(Age_BP, Streptococcus, method = "spearman"))
+
+# check correlation between sample age and Streptococcus
+
+
 ```
 
 
