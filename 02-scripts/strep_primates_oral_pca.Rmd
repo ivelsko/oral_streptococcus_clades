@@ -82,11 +82,10 @@ lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
                               ifelse(Study  ==  "HMP2012" & Sample_type == "buccal_mucosa","Buccal mucosa - Industrial",
                                      ifelse(Study ==  "Brito2016","Saliva - Non-industrial",
                                             ifelse(Study == "HMP2012" & Sample_type == "subplaque","subPlaque - Industrial",Full_next)))))) %>%
-  # SOMEHOW NEED TO FIX THE SPECIES FOR FELLOWSYATES2021 AND IBERIAN FOR ALL NON-HUMAN SAMPLES
+  # SOMEHOW NEED TO FIX THE SPECIES FOR FELLOWSYATES2021 FOR ALL NON-HUMAN SAMPLES
   mutate(Full_next = ifelse(Study == "FellowsYates2021" & Host == "Gorilla","Gorilla calculus",
                             ifelse(Study == "FellowsYates2021" & Host == "Chimpanzee","Chimpanzee calculus",
-                                   ifelse(Study == "FellowsYates2021" & Host == "Howler monkey", "Howler calculus",
-                                          ifelse(Study == "Iberian" & Host == "Chimpanzee","Chimpanzee calculus",Full_next))))) %>%
+                                   ifelse(Study == "FellowsYates2021" & Host == "Howler monkey", "Howler calculus",Full_next)))) %>%
   mutate(Full = str_replace_all(Full_next, "supra",""),
          Full = str_replace_all(Full, "sub","")) %>% 
   mutate(Full_next = fct_relevel(Full_next, "Calculus - Ancient","Calculus - Industrial","subPlaque - Industrial","supraPlaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial")) %>%
@@ -174,6 +173,13 @@ primate_calc_sp <- primate_oral_raw %>%
   select(-c("domain","phylum","class","order","family","genus")) %>%
   mutate(Species = str_replace_all(Species, "s__s__",""))
 
+# primate_calc_sp %>%
+#   filter(str_detect(Species, "Streptococcus"))  %>%
+#   pivot_longer(!Species, names_to = "Library_ID", values_to = "Counts") %>%
+#   select(Library_ID) %>%
+#   unique() %>%
+#   arrange(Library_ID) %>%
+#   fwrite(., "./00-documentation/samples_included.tsv", quote = F, sep = "\t")
 
 # filter to have only species with abundance >= 0.001
 primate_calc_filt <- primate_oral_raw %>% 
@@ -264,7 +270,7 @@ primate_calc.pca.varmet <- primate_calc.pca.variates %>%
 primate_oral_pc12 <- primate_calc.pca.varmet %>%
   ggplot(., aes(PC1, PC2, colour = Full, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_manual(values = c("#feb24c","#feb24c","#FF3200","#FF3200","#82CDAA","#82CDAA","#065FA3","#065FA3","#feb24c","#feb24c","#feb24c","#feb24c","#cd82a5")) +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -305,7 +311,7 @@ primate_calc_filt.pca.varmet <- primate_calc_filt.pca.variates %>%
 oral_non_pq_pc12 <- primate_calc_filt.pca.varmet %>%
   ggplot(., aes(PC1, PC2, colour = Full, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_manual(values = c("#feb24c","#feb24c","#FF3200","#FF3200","#82CDAA","#82CDAA","#065FA3","#065FA3","#feb24c","#feb24c","#feb24c","#feb24c","#cd82a5")) +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -317,8 +323,8 @@ oral_non_pq_pc12 <- primate_calc_filt.pca.varmet %>%
     ggtitle("Host")
 oral_non_pq_pc12
 
-ggsave("./06-publication/supplemental_figures/Sup_fig_S18/primate_oral_pc12_hosts.pdf", plot = oral_non_pq_pc12, device = "pdf",
-       scale = 1, width = 12, height = 5, units = c("in"), dpi = 300)
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S18/primate_oral_pc12_hosts.pdf", plot = oral_non_pq_pc12, device = "pdf",
+#        scale = 1, width = 12, height = 5, units = c("in"), dpi = 300)
 
 ```
 
@@ -330,7 +336,7 @@ primate_calc_filt.pca.varmet %>%
                                ifelse(Study  == "Lassalle2017","Lassalle","No")))) %>%
   ggplot(., aes(PC1, PC2, colour = Brito, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_manual(values = c("cyan","skyblue","black","#065FA3")) +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -370,7 +376,7 @@ primate_calc_filt_indiv.pca.varmet <- primate_calc_filt_indiv.pca.variates %>%
 primate_calc_filt_indiv_pc12 <- primate_calc_filt_indiv.pca.varmet %>%
   ggplot(., aes(PC1, PC2, colour = Full, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_manual(values = c("#feb24c","#feb24c","#FF3200","#FF3200","#82CDAA","#82CDAA","#065FA3","#065FA3","#feb24c","#feb24c","#feb24c","#feb24c","#cd82a5")) +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt_indiv.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -423,7 +429,7 @@ primate_calc_strep.pca.varmet <- primate_calc_strep.pca.variates %>%
 primate_calc_strep.pca.varmet %>%
   ggplot(., aes(PC1, PC2, colour = Full, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_manual(values = c("#feb24c","#feb24c","#FF3200","#FF3200","#82CDAA","#82CDAA","#065FA3","#065FA3","#feb24c","#feb24c","#feb24c","#feb24c","#cd82a5")) +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_strep.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -445,7 +451,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = logage, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -463,7 +469,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = logreads, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -491,7 +497,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Percent_cl, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -516,7 +522,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Total_species, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -532,7 +538,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Filtered_species_norm, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -551,7 +557,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = avg_gc, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -570,7 +576,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = avg_rl, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -634,7 +640,7 @@ primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Streptococcus, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -777,7 +783,7 @@ san_prop <- primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Sanguinis, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -795,7 +801,7 @@ ang_prop <- primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Anginosus, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -813,7 +819,7 @@ mitis_prop <- primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Mitis, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -831,7 +837,7 @@ other_prop <- primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Other, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +
@@ -849,7 +855,7 @@ unk_prop <- primate_calc_filt.pca.varmet %>%
   # arrange(Sample_type)
   ggplot(., aes(PC1, PC2, colour = Unknown, shape = Full, size = Full)) +
     geom_point() +
-    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,11)) +
+    scale_shape_manual(values = c(18,5,1,16,2,17,0,15,13,8,3,4,14)) +
     scale_color_viridis_c(option = "C") +
     scale_size_manual(values = c(3,2,2,2,2,2,2,2,2,2,2,2,2)) +
     xlab(paste("PC1 - ", 100*(round(data.frame(primate_calc_filt.pca$prop_expl_var$X[1]), digits = 4)), "%", sep = "")) +

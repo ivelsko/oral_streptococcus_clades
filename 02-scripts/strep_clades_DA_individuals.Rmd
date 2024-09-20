@@ -325,7 +325,7 @@ cm55_points <- aardvark %>%
          scale_shape_manual(values = c(21,24,23,22)) +
          theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8),
                axis.text = element_text(size = 10)) +
-         scale_y_log10() +
+         scale_y_log10(limits = c(0.01, 11)) +
          labs(fill = "Clade", shape = "Clade") +
          ylab("Percent") +
          xlab("Tooth Nr. (FDI)")
@@ -489,7 +489,7 @@ cm59_points <- aardvark %>%
          scale_shape_manual(values = c(21,24,23,22)) +
          theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8),
                axis.text = element_text(size = 10)) +
-         scale_y_log10() +
+         scale_y_log10(limits = c(0.01, 10)) +
          labs(fill = "Clade", shape = "Clade") +
          ylab("Percent") +
          xlab("Tooth Nr. (FDI)")
@@ -652,7 +652,7 @@ cm82_points <- aardvark %>%
          scale_shape_manual(values = c(21,24,23,22)) +
          theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8),
                axis.text = element_text(size = 10)) +
-         scale_y_log10() +
+         scale_y_log10(limits = c(0.01, 10)) +
          labs(fill = "Clade", shape = "Clade") +
          ylab("Percent") +
          xlab("Tooth Nr. (FDI)")
@@ -822,7 +822,7 @@ cm165_points <- aardvark %>%
          scale_shape_manual(values = c(21,24,23,22)) +
          theme(axis.text.x = element_text(angle = 0, hjust = 0.5, size = 8),
                axis.text = element_text(size = 10)) +
-         scale_y_log10() +
+         scale_y_log10(limits = c(0.01, 10)) +
          labs(fill = "Clade", shape = "Clade") +
          ylab("Percent") +
          xlab("Tooth Nr. (FDI)")
@@ -857,12 +857,46 @@ da_fig <- (cm55_gp | cm59_gp | cm82_gp | cm165_gp) /
 
 da_fig
 
-ggsave("./06-publication/supplemental_figures/Sup_fig_S13/strep_props_da.pdf", plot = da_fig,
-       device = "pdf", scale = 1, width = 14, height = 8.5, units = c("in"), dpi = 300)
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S13/strep_props_da.pdf", plot = da_fig,
+#        device = "pdf", scale = 1, width = 14, height = 8.5, units = c("in"), dpi = 300)
 
 
 ```
 
+```{r}
+
+strep_prop %>%
+  full_join(., da_metadata %>%
+              select(LibraryID, Individual) %>%
+              rename(Library_ID = LibraryID), by = "Library_ID") %>%
+  as_tibble() %>%
+  drop_na(Streptococcus) %>%
+  mutate(Strep = ifelse(Individual == "CM165", "Low","High")) %>%
+  group_by(Strep) %>%
+  summarize(meanStrep = mean(Streptococcus),
+            sdStrep = sd(Streptococcus)) %>%
+  ungroup()
+
+
+strep_prop %>%
+  full_join(., da_metadata %>%
+              select(LibraryID, Individual) %>%
+              rename(Library_ID = LibraryID), by = "Library_ID") %>%
+  as_tibble() %>%
+  drop_na(Streptococcus) %>%
+  mutate(Strep = ifelse(Individual == "CM165", "Low","High")) %>%
+  rstatix::wilcox_test(., Streptococcus ~ Strep) %>%
+  full_join(., strep_prop %>%
+            full_join(., da_metadata %>%
+                      select(LibraryID, Individual) %>%
+                      rename(Library_ID = LibraryID), by = "Library_ID") %>%
+            as_tibble() %>%
+            drop_na(Streptococcus) %>%
+            mutate(Strep = ifelse(Individual == "CM165", "Low","High")) %>%
+            rstatix::wilcox_effsize(., Streptococcus ~ Strep))
+
+
+```
 
 
 

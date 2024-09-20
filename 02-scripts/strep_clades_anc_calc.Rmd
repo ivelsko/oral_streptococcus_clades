@@ -219,7 +219,7 @@ ac_clades
 ```
 
 
-```{r}
+```{r clade_correlations_clr}
 
 ac_clades_table <- anc_calc_strep_sp %>%
   # remove poorly-preserved samples
@@ -241,10 +241,48 @@ ac_clades_table <- anc_calc_strep_sp %>%
 shapiro.test(ac_clades_table$Sanguinis)
 shapiro.test(ac_clades_table$Anginosus)
 
+ac_clades_table_clr_pre <- ac_clades_table %>%
+  column_to_rownames("Library_ID")
+
+ac_clades_table_clr <- compositions::clr(ac_clades_table_clr_pre)
+ac_clades_table_clr <- as.data.frame.matrix(ac_clades_table_clr)
+
+
 ac_clades_table %>%
   cor_test(Sanguinis, Anginosus, method = "spearman") %>%
   bind_rows(ac_clades_table %>% cor_test(Sanguinis, Anginosus, method = "kendall"))
   
+ac_clades_table_clr %>%
+  cor_test(Sanguinis, Anginosus, method = "pearson")
+
+```
+
+```{r clade_correlations_propr}
+
+pr_ac_clades_table_clr <- propr::propr(
+        ac_clades_table_clr,  # rows as samples, like it should be
+        metric = "rho",  # or "phi", "phs", "cor", "vlr"
+        ivar = NA,  # "clr" or can use "iqlr" instead
+        alpha = NA,  # use to handle zeros
+        p = 50  # used for updateCutoffs
+      ) 
+
+pr_ac_clades_table_clr <- propr::updateCutoffs(
+        pr_ac_clades_table_clr,
+        number_of_cutoffs = 50,
+        # custom_cutoffs = c(0.94, 0.95, 0.96, 0.97, 0.98, 0.99),  # cutoffs at which to estimate FDR
+        ncores = 4  # parallelize here
+      )
+
+results_pr_ac_clades_table_clr_df <- propr::getResults(pr_ac_clades_table_clr)
+
+results_pr_ac_clades_table_clr_df %>%
+  filter(str_detect(Partner, "Sanguinis|Anginosus")) %>%
+  filter(str_detect(Pair, "Sanguinis|Anginosus"))
+
+# Probably too few input categories (clades) to calculate FDR
+pr_ac_clades_table_clr@fdr
+
 ```
 
 
@@ -424,8 +462,8 @@ strep_age_bars <- ac_clades / sample_age_plot +
 
 strep_age_bars
 
-ggsave("./06-publication/supplemental_figures/Sup_fig_S6/strep_age_bars.pdf", plot = strep_age_bars, device = "pdf",
-       scale = 1, width = 10, height = 5, units = c("in"), dpi = 300)
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S6/strep_age_bars.pdf", plot = strep_age_bars, device = "pdf",
+#        scale = 1, width = 10, height = 5, units = c("in"), dpi = 300)
 
 
 # check correlation between sample age and Sanguinis/Anginosus
@@ -455,12 +493,24 @@ age_abund_table <- anc_calc_strep_sp %>%
             mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs))) %>%
   left_join(., strep_prop, by = "Library_ID")
 
+# check correlation between sample age and Streptococcus
+
 age_abund_table %>%
   cor_test(Age_BP, Sanguinis, method = "spearman") %>%
   bind_rows(age_abund_table %>% cor_test(Age_BP, Anginosus, method = "spearman")) %>%
   bind_rows(age_abund_table %>% cor_test(Age_BP, Streptococcus, method = "spearman"))
 
-# check correlation between sample age and Streptococcus
+
+age_abund_table %>%
+  select(Library_ID, Age_BP) %>%
+  right_join(., ac_clades_table_clr %>%
+               rownames_to_column("Library_ID"), by = "Library_ID") %>%
+  cor_test(Age_BP, Sanguinis, method = "pearson") %>%
+  bind_rows(age_abund_table %>%
+  select(Library_ID, Age_BP) %>%
+  right_join(., ac_clades_table_clr %>%
+               rownames_to_column("Library_ID"), by = "Library_ID") %>% 
+               cor_test(Age_BP, Anginosus, method = "pearson"))
 
 
 ```
@@ -760,6 +810,296 @@ early_colonizer_plots
 
 ```
 
+
+```{r}
+gemella_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Gemella"),"Gemella","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_gemella_prop <- gemella_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Gemella")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_gemella_prop
+
+```
+
+```{r}
+granulicatella_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Granulicatella"),"Granulicatella","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_granulicatella_prop <- granulicatella_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Granulicatella")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_granulicatella_prop
+
+```
+
+```{r}
+eikenella_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Eikenella"),"Eikenella","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_eikenella_prop <- eikenella_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Eikenella")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_eikenella_prop
+
+```
+
+```{r}
+rothia_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Rothia"),"Rothia","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_rothia_prop <- rothia_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Rothia")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_rothia_prop
+
+```
+
+```{r}
+prevotella_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Prevotella"),"Prevotella","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_prevotella_prop <- prevotella_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Prevotella")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_prevotella_prop
+
+```
+
+```{r}
+haemophilus_prop <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  mutate(Genus = ifelse(str_detect(Species,"Haemophilus"),"Haemophilus","Other")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  select(-Species) %>%
+  # convert to long format
+  gather("Library_ID","Counts", 2:ncol(.)) %>%
+  group_by(Library_ID, Genus) %>%
+  # sum all Strep read counts and all Other read counts
+  summarize(Reads = sum(Counts)) %>%
+  spread(Genus, Reads) %>%
+  # convert to proportions
+  adorn_percentages() %>%
+  ungroup()
+
+ac_haemophilus_prop <- haemophilus_prop %>%
+  gather("Genus","Counts", 2:ncol(.)) %>%
+  mutate(Library_ID = fct_relevel(Library_ID, sample_order_rs)) %>%
+  arrange(Library_ID) %>%
+  mutate(Genus = fct_relevel(Genus, "Other","Haemophilus")) %>%
+  ggplot(., aes(x = Library_ID, y = Counts, fill = Genus)) +
+         geom_bar(stat = "identity") + # , color = "black"
+         theme_minimal(base_size = 14) +
+         scale_fill_manual(values = c("#e0e0e0", "#a50026")) +
+         theme(axis.text.x = element_blank()) +
+         # theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+         #       axis.text = element_text(size = 8)) +
+         # scale_y_continuous(breaks=scales::pretty_breaks(n=6)) +
+         # ylim(0,10) +
+         scale_y_continuous(labels = function(x) paste0(x*100)) + # Multiply by 100
+         # scale_y_log10() +
+         ylab("Percent") +
+         xlab("Sample") +
+        ggtitle("")
+ac_haemophilus_prop
+
+```
+
+```{r}
+early_colonizer_plots2 <- ac_strep_prop / ac_gemella_prop / ac_granulicatella_prop / ac_eikenella_prop / ac_haemophilus_prop / ac_rothia_prop / ac_prevotella_prop +
+  plot_layout(heights = c(1,1,1,1,1,1,1))
+
+early_colonizer_plots2
+
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S8/early_colonizer_plots_anc_calc2.pdf", plot = early_colonizer_plots2, device = "pdf",
+#        scale = 1, width = 14, height = 18, units = c("in"), dpi = 300)
+
+```
+
+
+
 See if *Porphyromonas* are higher in samples with low Strep than samples with high
 *Strep.* *P. gingivalis* abundance is inversely correlated  w/*S. cristatus* abundance
 ```{r rs_Porphyromonas_proportion}
@@ -863,8 +1203,8 @@ late_colonizer_plots <- ac_strep_prop / ac_porphyromonas_prop + ac_methanobrevib
 
 late_colonizer_plots
 
-ggsave("./06-publication/supplemental_figures/Sup_fig_S9/late_colonizer_plots_anc_calc.pdf", plot = late_colonizer_plots, device = "pdf",
-       scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S9/late_colonizer_plots_anc_calc.pdf", plot = late_colonizer_plots, device = "pdf",
+#        scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
 
 
 ```
@@ -1087,6 +1427,146 @@ genus_table %>%
 
 ```
 
+```{r clr_pearson}
+
+genus_table_pre <- anc_calc_raw %>% 
+  # remove poorly-preserved samples
+  select(-matches(poor_samples %>% str_c(collapse = "|"))) %>%
+  filter(str_detect(Lineage, "s__s__")) %>%
+  separate(Lineage, into = c("domain","phylum","class","order","family","genus","Species"), sep = "\\|", extra = "merge") %>%
+  select(-c("domain","phylum","class","order","family","genus")) %>%
+  mutate(Species = str_replace_all(Species, "s__s__","")) %>%
+  # make a column with Strep or other
+  separate_wider_delim(Species, delim = " ", too_many = "merge", names = c("genus","species")) %>%
+  separate_wider_delim(genus, delim = "_", too_few = "align_start", names = c("Genus","Species")) %>%
+  select(-species, -Species) %>%
+  # filter(str_detect(Genus,"Streptococcus|Capnocytophaga|Veillonella|Neisseria|Corynebacterium|Fusobacterium|Actinomyces|Porphyromonas|Methanobrevibacter")) %>%
+  # remove Species column leaving Genus column
+  select(Genus, everything()) %>%
+  # Get all genus counts summed per sample
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  group_by(Library_ID, Genus) %>%
+  summarize(Total = sum(Counts)) %>%
+  ungroup() %>%
+  pivot_wider(names_from = "Library_ID", values_from = "Total") %>%
+  # calculate the total % of each genus across all calculus samples
+  adorn_totals(where = "col") %>%
+  mutate(Percent = Total / sum(Total) * 100) %>%
+  filter(Percent >= 0.01) %>%
+  select(-Percent, -Total) %>%
+  as_tibble() %>%
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  # add +1 to all counts to do a CLR transformation next step
+  mutate(Counts = Counts + 1) %>%
+  pivot_wider(names_from = "Library_ID", values_from = "Counts") %>%
+  column_to_rownames("Genus")
+
+# CLR-transform the table for plotting
+genus_table_clr <- compositions::clr(genus_table_pre)
+genus_table_clr <- as.data.frame.matrix(genus_table_clr) %>%
+  rownames_to_column("Genus") %>%
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "CLR") %>%
+  pivot_wider(names_from = "Genus", values_from = "CLR")
+
+genus_table_clr %>%
+  cor_test(Streptococcus, Corynebacterium, method = "pearson") %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Fusobacterium, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Capnocytophaga, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Neisseria, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Actinomyces, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Veillonella, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Methanobrevibacter, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Desulfobulbus, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Porphyromonas, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Flexilinea, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Methanobrevibacter, Porphyromonas, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Methanobrevibacter, Desulfobulbus, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Methanobrevibacter, Flexilinea, method = "pearson")) 
+
+
+genus_table_clr %>%
+  cor_test(Streptococcus, Rothia, method = "pearson") %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Gemella, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Granulicatella, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Haemophilus, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Eikenella, method = "pearson")) %>%
+  bind_rows(genus_table_clr %>% cor_test(Streptococcus, Prevotella, method = "pearson"))
+
+```
+
+```{r propr_clr_input}
+
+library(propr)
+
+# move the column with names to row names for propr to work
+genus_table_clr_propr <- genus_table_clr %>%
+  column_to_rownames("Library_ID")
+
+pr_all_clr_input <- propr(
+        genus_table_clr_propr,  # rows as samples, like it should be
+        metric = "rho",  # or "phi", "phs", "cor", "vlr"
+        ivar = NA,  # "clr" or can use "iqlr" instead
+        alpha = NA,  # use to handle zeros
+        p = 50  # used for updateCutoffs
+      ) 
+
+pr_all_clr_input <- updateCutoffs(
+        pr_all_clr_input,
+        number_of_cutoffs = 50,
+        # custom_cutoffs = c(0.94, 0.95, 0.96, 0.97, 0.98, 0.99),  # cutoffs at which to estimate FDR
+        ncores = 4  # parallelize here
+      )
+
+results_all_clr_input_df <- getResults(pr_all_clr_input)
+
+results_all_clr_input_df %>%
+  filter(Partner == "Streptococcus" | Pair == "Streptococcus") %>%
+  filter(str_detect(Partner, "Streptococcus|Capnocytophaga|Veillonella|Neisseria|Corynebacterium|Fusobacterium|Actinomyces|Rothia|Gemella|Granulicatella|Eikenella|Haemophilus|Prevotella|Porphyromonas|Methanobrevibacter")) %>%
+  filter(str_detect(Pair, "Streptococcus|Capnocytophaga|Veillonella|Neisseria|Corynebacterium|Fusobacterium|Actinomyces|Rothia|Gemella|Granulicatella|Eikenella|Haemophilus|Prevotella|Porphyromonas|Methanobrevibacter"))
+
+# for an FDR of 5%, use cutoff of 0.35 (so propr value of 0.35 and higher has <= FDR of 5% or less)
+pr_all_clr_input@fdr
+
+```
+
+```{r propr_during_input}
+
+library(propr)
+
+# move the column with names to row names for propr to work
+genus_table_propr <- genus_table_pre %>%
+  rownames_to_column("Genus") %>%
+  pivot_longer(!Genus, names_to = "Library_ID", values_to = "Counts") %>%
+  pivot_wider(names_from = "Genus", values_from = "Counts") %>%
+  column_to_rownames("Library_ID")
+
+pr_all_clr_during <- propr(
+        genus_table_propr,  # rows as samples, like it should be
+        metric = "rho",  # or "phi", "phs", "cor", "vlr"
+        ivar = "clr",  # "clr" or can use "iqlr" instead
+        alpha = NA,  # use to handle zeros
+        p = 50  # used for updateCutoffs
+      ) 
+
+pr_all_clr_during <- updateCutoffs(
+        pr_all_clr_during,
+        number_of_cutoffs = 50,
+        # custom_cutoffs = c(0.94, 0.95, 0.96, 0.97, 0.98, 0.99),  # cutoffs at which to estimate FDR
+        ncores = 4  # parallelize here
+      )
+
+results_all_clr_during_df <- getResults(pr_all_clr_during)
+
+results_all_clr_during_df %>%
+  filter(Partner == "Streptococcus" | Pair == "Streptococcus") %>%
+  filter(str_detect(Partner, "Streptococcus|Capnocytophaga|Veillonella|Neisseria|Corynebacterium|Fusobacterium|Actinomyces|Porphyromonas|Methanobrevibacter")) %>%
+  filter(str_detect(Pair, "Streptococcus|Capnocytophaga|Veillonella|Neisseria|Corynebacterium|Fusobacterium|Actinomyces|Porphyromonas|Methanobrevibacter"))
+
+# for an FDR of 5%, use cutoff of 0.03 (so propr value of 0.03 and higher has <= FDR of 5.2% or less)
+pr_all_clr_during@fdr
+
+```
+
 
 ### All samples except Pacific
 ```{r strep_clade_props_no_pacific}
@@ -1299,8 +1779,8 @@ strep_np_plots <- ac_np_clades / ac_np_strep_prop / ac_np_points +
 
 strep_np_plots
 
-ggsave("./06-publication/supplemental_figures/Sup_fig_S7/strep_props_no_pacific.pdf", plot = strep_np_plots, device = "pdf",
-       scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S7/strep_props_no_pacific.pdf", plot = strep_np_plots, device = "pdf",
+#        scale = 1, width = 14, height = 9, units = c("in"), dpi = 300)
 
 ```
 
@@ -2122,8 +2602,8 @@ pacific_strep_plots <- pacific_clades / pacific_strep_prop / pacific_points / pa
 
 pacific_strep_plots
 
-ggsave("./06-publication/supplemental_figures/Sup_fig_S7/strep_props_pacific.pdf", plot = pacific_strep_plots, device = "pdf",
-       scale = 1, width = 6, height = 8, units = c("in"), dpi = 300)
+# ggsave("./06-publication/supplemental_figures/Sup_fig_S7/strep_props_pacific.pdf", plot = pacific_strep_plots, device = "pdf",
+#        scale = 1, width = 6, height = 8, units = c("in"), dpi = 300)
 
 ```
 
