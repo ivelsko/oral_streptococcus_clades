@@ -10,7 +10,7 @@
    viewBox="0 0 1344 864"
    sodipodi:docname="late_colonizer_plots_anc_calc.svg"
    inkscape:version="1.1 (c4e8f9e, 2021-05-24)"
-   inkscape:export-filename="/Users/velsko/bitmap.png"
+   inkscape:export-filename="/Users/velsko/archgen/microbiome_calculus/oral_streptococcus_clades/06-publication/supplemental_figures/Sup_fig_S9/Sup_fig_S9.png"
    inkscape:export-xdpi="300"
    inkscape:export-ydpi="300"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
@@ -51,7 +51,7 @@
      inkscape:pagecheckerboard="0"
      showgrid="false"
      inkscape:zoom="0.70737049"
-     inkscape:cx="602.23038"
+     inkscape:cx="599.40301"
      inkscape:cy="506.09971"
      inkscape:window-width="1903"
      inkscape:window-height="972"
@@ -13743,7 +13743,7 @@
          x="0.57600772"
          y="-233.57799">C</tspan></text><text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.167px;line-height:2;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.167px;line-height:1.1;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
        x="62.477039"
        y="-408.00476"
        id="text6203"
@@ -13752,9 +13752,14 @@
          id="tspan6201"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
          x="62.477039"
-         y="-408.00476">𝛒 = 0.12, p  &lt; 0.001 </tspan></text><text
+         y="-408.00476">CLR-Pearson 𝛒 = 0.34, p  &lt; 0.001</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
+         x="62.477039"
+         y="-391.46951"
+         id="tspan156674">CoDA  𝛒 = 0.33</tspan></text><text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.167px;line-height:2;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:14.167px;line-height:1.1;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
        x="62.477039"
        y="-226.50476"
        id="text15483"
@@ -13763,4 +13768,9 @@
          id="tspan15481"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
          x="62.477039"
-         y="-226.50476">𝛒 = -0.17, p  &lt; 0.001 </tspan></text></g></svg>
+         y="-226.50476">CLR-Pearson 𝛒 = 0.075, p  &lt; 0.01</tspan><tspan
+         sodipodi:role="line"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue';stroke-width:0.265631"
+         x="62.477039"
+         y="-209.9695"
+         id="tspan159442">CoDA  𝛒 = 0.06 </tspan></text></g></svg>
