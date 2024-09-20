@@ -1,0 +1,205 @@
+---
+title: "Figure 1 - Continent/sample map"
+author: "Irina Velsko"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output: html_notebook
+---
+
+```{r load_libraries, echo = F, message = F}
+library(spData)
+library(tmap)    # for static and interactive maps
+library(osmdata) # package for working with streets
+library(showtext) # for custom fonts
+library(ggmap)
+library(rvest)
+library(data.table)
+library(tidyverse)
+library(ggridges)
+library(patchwork)
+```
+
+Set the working directory of the notebook to the parent directory of the 
+notebook itself.  
+
+```{r setup}
+knitr::opts_knit$set(root.dir = normalizePath("../../.."))
+```
+
+```{r metadata}
+
+lib_metadata <- fread("./00-documentation/strep_clades_metadata.tsv") %>%
+  select(matches("Study|Sample|Host|accession|Age|avg|reads|Country")) %>%
+  filter(!str_detect(Study, "ObregonTito2015|Oh2016|Rampelli2015|Sankaranarayanan2015|Slon2017")) %>%
+  filter(!str_detect(Sample_group,"urban_gut|blank|Bone|Blank|blank|skin|sediment")) %>%
+  mutate(Secondary_sample_accession = ifelse(Study == "Velsko2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2023", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Velsko2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "FellowsYates2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Clemente2015", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Lassalle2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Brealey2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eerkens2018", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Eisenhofer2020", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Fagernaes2022", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Granehaell2021", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Jacobson2020", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Mann2018_w", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ozga2019", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Ottoni2021", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Iberian", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Pacific", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Weyrich2017", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Warinner2014", Sample_alias,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Asangba2022", Run_accession,Secondary_sample_accession),
+         Secondary_sample_accession = ifelse(Study == "Neukamm2020", Sample_alias,Secondary_sample_accession)) %>%
+  mutate(Secondary_sample_accession = str_replace_all(Secondary_sample_accession, ".SG1.1","")) %>%
+  mutate(Full_next = ifelse(Study == "Clemente2015","Buccal mucosa - Non-industrial",
+                       ifelse(Study == "Lassalle2017","Saliva - Non-industrial",
+                              ifelse(Study == "Velsko2023", "Plaque - Non-industrial",
+                                     ifelse(Study == "Velsko2018" & Sample_group == "modern_calculus","Calculus - Industrial",
+                                            ifelse(Study == "FellowsYates2021" & Sample_group == "modern_calculus","Calculus - Industrial","Calculus - Ancient")))))) %>%
+  mutate(Full_next = ifelse(Study == "Asangba2022", "NHP - oral swab",
+                            ifelse(Study == "Moraitou2022", "Gorilla calculus",
+                                   ifelse(Study == "Brealey2020", "Gorilla calculus",
+                                          ifelse(Study == "Ozga2019","Chimpanzee calculus",
+                                                 ifelse(Study == "Ottoni2019","Baboon calculus",Full_next)))))) %>%
+  mutate(Full_next = ifelse(Study == "HMP2012" & Sample_type == "supraplaque","supraPlaque - Industrial",
+                       ifelse(Study == "HMP2012" & Sample_type == "saliva","Saliva - Industrial",
+                              ifelse(Study  ==  "HMP2012" & Sample_type == "buccal_mucosa","Buccal mucosa - Industrial",
+                                     ifelse(Study ==  "Brito2016","Saliva - Non-industrial",
+                                            ifelse(Study == "HMP2012" & Sample_type == "subplaque","subPlaque - Industrial",Full_next)))))) %>%
+  # SOMEHOW NEED TO FIX THE SPECIES FOR FELLOWSYATES2021 FOR ALL NON-HUMAN SAMPLES
+  mutate(Full_next = ifelse(Study == "FellowsYates2021" & Host == "Gorilla","Gorilla calculus",
+                            ifelse(Study == "FellowsYates2021" & Host == "Chimpanzee","Chimpanzee calculus",
+                                   ifelse(Study == "FellowsYates2021" & Host == "Howler monkey", "Howler calculus",Full_next)))) %>%
+  mutate(Full = str_replace_all(Full_next, "supra",""),
+         Full = str_replace_all(Full, "sub","")) %>% 
+  mutate(Full_next = fct_relevel(Full_next, "Calculus - Ancient","Calculus - Industrial","subPlaque - Industrial","supraPlaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial")) 
+
+```
+
+
+```{r continent_table}
+country_continent <- fread("./00-documentation/country_continent_list.tsv")
+
+continent_info <- lib_metadata %>%
+  select(Host, Country, Secondary_sample_accession, Full, Sample_type, Sample_group, Age_BP) %>% 
+  rename(Library_ID = Secondary_sample_accession) %>%
+  mutate(Country = ifelse(Country == "Efate_3000", "Efate",
+                          ifelse(Country == "Republic of the Congo", "Democratic Republic of the Congo", Country))) %>%
+  unique() %>%
+  filter(Host != "Blank") %>%
+  left_join(., country_continent, by = "Country") %>%
+  # fill in missing continent info
+  mutate(Continent = ifelse(str_detect(Country, "Madagascar|Republic of the Congo"),"Africa",
+                            ifelse(str_detect(Country, "Guatemala"),"North America", 
+                                   ifelse(Country == "Watom", "Oceania",Continent)))) %>%
+  select(Host,Continent, Country, everything()) %>%
+  arrange(Continent, Country) %>%
+  # Now add latitude and longitude to be able to plot on a map
+  full_join(., fread("./00-documentation/country_coordinates.tsv"), by = "Country") %>%
+  right_join(., fread("./00-documentation/samples_included.tsv"), by = "Library_ID")
+
+continent_info_counts <- continent_info %>%
+  mutate(Full = ifelse(Sample_type == "calculus" & str_detect(Full, "Baboon|Chimpanzee|Gorilla|Howler"),"NHP - calculus", Full)) %>%
+  group_by(Continent, Full) %>%
+  count(name = "counts") %>%
+  ungroup() %>%
+  mutate(Continent = str_replace_all(Continent, "Caribbean","South America")) %>%
+  full_join(., fread("../cmc_deep_assembly/00-documentation/continent_coordinates.tsv") %>%
+              mutate(Continent = str_replace_all(Continent, "not provided", "Unknown")), by = "Continent") %>%
+  mutate(Full = fct_relevel(Full, "Calculus - Ancient","Calculus - Industrial","Plaque - Industrial","Plaque - Non-industrial","Buccal mucosa - Industrial","Buccal mucosa - Non-industrial","Saliva - Industrial","Saliva - Non-industrial", "NHP - calculus", "NHP - oral swab"))
+
+continent_ac_age_counts <- continent_info %>%
+  mutate(Full = ifelse(Sample_type == "calculus" & str_detect(Full, "Baboon|Chimpanzee|Gorilla|Howler"),"NHP - calculus", Full)) %>%
+  filter(Full == "Calculus - Ancient") %>%
+  mutate(log_age = log10(Age_BP)) %>%
+  mutate(la_ch = as.character(log_age),
+         la_ch = str_trunc(la_ch, width = 3, side = "right", ellipsis = "")) %>%
+  group_by(Continent, Country, la_ch, Full) %>%
+  count(name = "counts") %>%
+  ungroup() %>%
+  # Now add latitude and longitude to be able to plot on a map
+  left_join(., fread("./00-documentation/country_coordinates.tsv"), by = "Country") %>%
+  # and convert the log-fold age back to number
+  mutate(la_ch = as.numeric(la_ch))
+
+
+```
+
+
+```{r}
+
+all_samples_world <- ggplot(world) +
+  geom_sf(aes(geometry = geom), fill = "gray90", color = "gray90") +
+  # geom_point(data = continent_info, aes(long, lat, color = No_samples, size = No_MAGs), shape = 19) +
+  ggpointgrid::geom_pointrect(data = continent_info_counts, aes(long, lat, color = Full, shape = Full, size = counts), scale_x = 8.0, scale_y = 8.0, stroke = 1.5) +
+  scale_shape_manual(values = c(18,5,1,16,2,17,0,15,9,14)) +
+  scale_color_manual(values = c("#feb24c","#feb24c","#FF3200","#FF3200","#82CDAA","#82CDAA","#065FA3","#065FA3","#cd82a5","#cd82a5")) +
+  scale_size_continuous(range = c(1,10)) +
+  theme_void() +
+  labs(color = "Sample type", size = "No. Samples", shape = "Sample type") +
+  theme(panel.grid.major = element_blank())
+
+all_samples_world
+
+```
+
+
+```{r}
+
+ac_age_ridge <- continent_info  %>%
+  mutate(Full = ifelse(Sample_type == "calculus" & str_detect(Full, "Baboon|Chimpanzee|Gorilla|Howler"),"NHP - calculus", Full)) %>%
+  filter(Country != "Venezuela") %>%
+  filter(Full == "Calculus - Ancient") %>%
+  filter(Continent != "Unknown",
+         !is.na(Age_BP)) %>%
+  mutate(Continent = str_replace_all(Continent, "Caribbean","South America"),
+         Continent = fct_relevel(Continent,"South America","North America","Oceania","Asia","Africa","Europe")) %>%
+  # filter(Continent == "South America")
+  ggplot(., aes(x = Age_BP, y = Continent, fill = Full)) +
+  geom_density_ridges(bandwidth = 200, jittered_points = TRUE, position = position_points_jitter(width = 0.05, height = 0), 
+                      point_shape = '|', point_size = 3, point_alpha = 1, alpha = 1.0,  scale = 0.9) + # rel_min_height = 0.01 scale = 0.9
+  scale_x_reverse(breaks=scales::pretty_breaks(n=10)) + # breaks=scales::pretty_breaks(n=10)
+  scale_y_discrete(position = "right") +
+  theme_classic(base_size = 14) +
+  scale_fill_manual(values = c("#feb24c")) +
+  theme(panel.grid.minor.x = element_blank()) +
+  guides(fill="none") +
+  xlab("Age (BP)")
+
+ac_age_ridge
+
+```
+
+
+```{r}
+
+sample_plot_main <- all_samples_world / ac_age_ridge +
+  plot_layout(guides = "collect", heights = c(1.5,1))
+sample_plot_main
+
+# ggsave("./06-publication/main_figures/Figure_1/sample_world_plot.pdf", plot = sample_plot_main, device = "pdf",
+#        scale = 1, width = 15, height = 6, units = c("in"), dpi = 300)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
