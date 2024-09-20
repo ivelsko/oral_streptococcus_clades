@@ -1,0 +1,113 @@
+Sample type	Genus1	Genus2	cor	statistic	p	conf.low	conf.high	method	lrv	metric	alpha	propr	Zeros
+Ancient dental calculus	Streptococcus	Actinomyces	0.3	6.876909	1.91E-11	0.21594151	0.37866585	Pearson	3.053692	rho	NA	0.2434648	0
+Ancient dental calculus	Streptococcus	Capnocytophaga	0.78	27.435729	2.28E-100	0.74403299	0.81392848	Pearson	2.287985	rho	NA	0.7469672	0
+Ancient dental calculus	Streptococcus	Corynebacterium	0.68	20.291923	1.47E-66	0.62833388	0.7248381	Pearson	2.254617	rho	NA	0.6770474	0
+Ancient dental calculus	Streptococcus	Eikenella	0.7	21.69394	3.08E-73	0.6554907	0.7460433	Pearson	2.288509	rho	NA	0.6956017	0
+Ancient dental calculus	Streptococcus	Fusobacterium	0.56	14.654818	1.87E-40	0.49105346	0.61477003	Pearson	2.879516	rho	NA	0.5559208	0
+Ancient dental calculus	Streptococcus	Gemella	0.8	29.26039	8.88E-109	0.7659222	0.8304217	Pearson	1.375853	rho	NA	0.7987456	0
+Ancient dental calculus	Streptococcus	Granulicatella	0.85	35.19551	4.79E-135	0.8219641	0.8721395	Pearson	1.523328	rho	NA	0.8215753	0
+Ancient dental calculus	Streptococcus	Haemophilus	0.82	31.28751	6.00E-118	0.7874327	0.8465202	Pearson	1.784765	rho	NA	0.7919526	0
+Ancient dental calculus	Streptococcus	Methanobrevibacter	0.075	1.655746	9.84E-02	-0.01404976	0.16357267	Pearson	10.52759	rho	NA	0.0678741	0
+Ancient dental calculus	Streptococcus	Neisseria	0.82	31.596865	2.49E-119	0.79048037	0.84879236	Pearson	2.257024	rho	NA	0.7700322	0
+Ancient dental calculus	Streptococcus	Porphyromonas	0.34	8.016186	8.38E-15	0.26234606	0.42003316	Pearson	3.509984	rho	NA	0.3360882	0
+Ancient dental calculus	Streptococcus	Prevotella	0.66	19.02246	1.53E-60	0.6015224	0.7037216	Pearson	1.877858	rho	NA	0.6376749	0
+Ancient dental calculus	Streptococcus	Rothia	0.69	20.96875	8.80E-70	0.6417535	0.7353396	Pearson	3.06254	rho	NA	0.6610604	0
+Ancient dental calculus	Streptococcus	Veillonella	0.71	22.236382	7.99E-76	0.66534879	0.75369576	Pearson	1.736992	rho	NA	0.7109201	0
+Calculus - Industrial	Streptococcus	Actinomyces	-0.39	-1.675505659	0.113	-0.722838755	0.09823858	Pearson	2.8163488	rho	NA	-0.38622404	0
+Calculus - Industrial	Streptococcus	Capnocytophaga	0.94	11.18170952	5.68E-09	0.847053484	0.978360443	Pearson	0.1165121	rho	NA	0.94154535	0
+Calculus - Industrial	Streptococcus	Corynebacterium	0.16	0.666964302	0.514	-0.327551116	0.586319187	Pearson	3.7253311	rho	NA	0.13820955	0
+Calculus - Industrial	Streptococcus	Eikenella	0.76	4.720146871	0.000231	0.459809292	0.906795285	Pearson	0.4607979	rho	NA	0.76276607	0
+Calculus - Industrial	Streptococcus	Fusobacterium	0.55	2.653756274	0.0173	0.115874242	0.810511481	Pearson	1.1630053	rho	NA	0.53971682	0
+Calculus - Industrial	Streptococcus	Gemella	0.33	1.415930123	0.176	-0.157753835	0.692653617	Pearson	1.6851124	rho	NA	0.32634803	0
+Calculus - Industrial	Streptococcus	Granulicatella	0.85	6.491814679	0.00000743	0.638137719	0.943295874	Pearson	0.855971	rho	NA	0.76122669	0
+Calculus - Industrial	Streptococcus	Haemophilus	0.79	5.193892726	0.0000887	0.516430169	0.919159199	Pearson	0.5366009	rho	NA	0.77876833	0
+Calculus - Industrial	Streptococcus	Methanobrevibacter	-0.067	-0.270014013	0.791	-0.517934472	0.412490103	Pearson	13.586251	rho	NA	-0.03557472	0
+Calculus - Industrial	Streptococcus	Neisseria	0.91	8.591367914	0.000000217	0.762350025	0.964998183	Pearson	0.3182564	rho	NA	0.87874466	0
+Calculus - Industrial	Streptococcus	Porphyromonas	0.12	0.470132483	0.645	-0.370322096	0.553438644	Pearson	2.0077799	rho	NA	0.1157662	0
+Calculus - Industrial	Streptococcus	Prevotella	-0.17	-0.683676678	0.504	-0.589016186	0.323868388	Pearson	2.3729186	rho	NA	-0.16842212	0
+Calculus - Industrial	Streptococcus	Rothia	0.69	3.831763813	0.00147	0.33216337	0.875783769	Pearson	1.076855	rho	NA	0.64748616	0
+Calculus - Industrial	Streptococcus	Veillonella	0.11	0.43893714	0.667	-0.3769891	0.548040111	Pearson	3.2527356	rho	NA	0.09737319	0
+Plaque - Non-industrial	Streptococcus	Actinomyces	-0.077	-0.698206568	0.487	-0.286548191	0.139823893	Pearson	1.006558	rho	NA	-0.073376815	0
+Plaque - Non-industrial	Streptococcus	Capnocytophaga	-0.057	-0.518816348	0.605	-0.268304738	0.159146986	Pearson	1.939555	rho	NA	-0.053822653	0
+Plaque - Non-industrial	Streptococcus	Corynebacterium	-0.13	-1.216891377	0.227	-0.337931698	0.083596266	Pearson	2.637648	rho	NA	-0.116497701	0
+Plaque - Non-industrial	Streptococcus	Eikenella	0.011	0.103394514	0.918	-0.203475984	0.225261057	Pearson	3.07449	rho	NA	0.009068009	0
+Plaque - Non-industrial	Streptococcus	Fusobacterium	-0.19	-1.715907333	0.09	-0.385197097	0.029391093	Pearson	1.755115	rho	NA	-0.183160245	0
+Plaque - Non-industrial	Streptococcus	Gemella	0.23	2.15976087	0.0337	0.018524559	0.425242262	Pearson	2.07608	rho	NA	0.196873672	0
+Plaque - Non-industrial	Streptococcus	Granulicatella	0.53	5.651820253	0.000000224	0.355425158	0.668035718	Pearson	1.131211	rho	NA	0.476378933	0
+Plaque - Non-industrial	Streptococcus	Haemophilus	0.28	2.634691276	0.0101	0.069112733	0.465860736	Pearson	2.464971	rho	NA	0.220308553	0
+Plaque - Non-industrial	Streptococcus	Methanobrevibacter	0.053	0.478965341	0.633	-0.163426812	0.264222133	Pearson	5.872808	rho	NA	0.031742155	0
+Plaque - Non-industrial	Streptococcus	Neisseria	0.16	1.501855503	0.137	-0.052624011	0.365201533	Pearson	3.129921	rho	NA	0.123077186	0
+Plaque - Non-industrial	Streptococcus	Porphyromonas	0.037	0.333904801	0.739	-0.178960424	0.24927445	Pearson	3.209443	rho	NA	0.028571289	0
+Plaque - Non-industrial	Streptococcus	Prevotella	-0.085	-0.776283514	0.44	-0.29441669	0.131388282	Pearson	1.505442	rho	NA	-0.084766913	0
+Plaque - Non-industrial	Streptococcus	Rothia	-0.013	-0.122033475	0.903	-0.227213882	0.201502204	Pearson	3.719443	rho	NA	-0.010010633	0
+Plaque - Non-industrial	Streptococcus	Veillonella	0.36	3.49029354	0.000779	0.157388549	0.532949182	Pearson	1.833058	rho	NA	0.303324651	0
+Plaque - Industrial	Streptococcus	Actinomyces	0.39	6.429148767	7.59E-10	0.27799751	0.498585376	Pearson	1.1374527	rho	NA	0.30205548	0
+Plaque - Industrial	Streptococcus	Capnocytophaga	0.45	7.619287176	7.04E-13	0.342884592	0.550618861	Pearson	1.5755363	rho	NA	0.32818499	0
+Plaque - Industrial	Streptococcus	Corynebacterium	0.33	5.322995395	0.000000247	0.21351905	0.445255451	Pearson	2.223907	rho	NA	0.19316158	0
+Plaque - Industrial	Streptococcus	Eikenella	0.31	4.911329574	0.00000174	0.188596576	0.424191975	Pearson	1.6787364	rho	NA	0.20011703	0
+Plaque - Industrial	Streptococcus	Fusobacterium	0.17	2.572050515	0.0108	0.039664279	0.292772769	Pearson	2.4591422	rho	NA	0.0946689	0
+Plaque - Industrial	Streptococcus	Gemella	0.55	9.979159956	1.19E-19	0.456620484	0.638089424	Pearson	1.2418896	rho	NA	0.45448599	0
+Plaque - Industrial	Streptococcus	Granulicatella	0.72	15.4503938	3.43E-37	0.647795709	0.775269331	Pearson	0.7115609	rho	NA	0.6521326	0
+Plaque - Industrial	Streptococcus	Haemophilus	0.35	5.588553199	6.59E-08	0.229340284	0.458495149	Pearson	1.2220331	rho	NA	0.5098271	0
+Plaque - Industrial	Streptococcus	Methanobrevibacter	0.27	4.239103852	0.0000328	0.146946996	0.388413086	Pearson	1.3369445	rho	NA	0.28662855	0
+Plaque - Industrial	Streptococcus	Neisseria	0.41	6.667274572	1.99E-10	0.291367167	0.509438235	Pearson	1.9884168	rho	NA	0.3195741	0
+Plaque - Industrial	Streptococcus	Porphyromonas	0.27	4.189255588	0.0000402	0.143815268	0.385693033	Pearson	3.1005734	rho	NA	0.14911753	0
+Plaque - Industrial	Streptococcus	Prevotella	-0.049	-0.733505515	0.464	-0.17792255	0.081890905	Pearson	3.7973439	rho	NA	-0.05204414	0
+Plaque - Industrial	Streptococcus	Rothia	0.53	9.380032585	7.42E-18	0.429654244	0.617765713	Pearson	1.2765249	rho	NA	0.41619298	0
+Plaque - Industrial	Streptococcus	Veillonella	0.55	9.85474957	2.82E-19	0.451127102	0.633969623	Pearson	1.3419097	rho	NA	0.45509117	0
+Buccal mucosa - Non-industrial	Streptococcus	Actinomyces	0.52	1.994358138	0.0715	-0.049795978	0.830502207	Pearson	1.6233938	rho	NA	0.4498654	0
+Buccal mucosa - Non-industrial	Streptococcus	Capnocytophaga	0.33	1.158364925	0.271	-0.270378246	0.745309126	Pearson	2.002334	rho	NA	0.2918385	0
+Buccal mucosa - Non-industrial	Streptococcus	Corynebacterium	0.51	1.966696715	0.075	-0.056936225	0.828267241	Pearson	1.7309257	rho	NA	0.4387616	0
+Buccal mucosa - Non-industrial	Streptococcus	Eikenella	0.53	2.068339854	0.063	-0.030805468	0.836311606	Pearson	1.2792775	rho	NA	0.486517	0
+Buccal mucosa - Non-industrial	Streptococcus	Fusobacterium	0.53	2.069862598	0.0628	-0.030416296	0.836428656	Pearson	1.1684482	rho	NA	0.4962753	0
+Buccal mucosa - Non-industrial	Streptococcus	Gemella	0.79	4.296514253	0.00126	0.426718261	0.934840055	Pearson	0.5100274	rho	NA	0.7587516	0
+Buccal mucosa - Non-industrial	Streptococcus	Granulicatella	0.86	5.504519629	0.000185	0.578628186	0.956236432	Pearson	0.3495602	rho	NA	0.827967	0
+Buccal mucosa - Non-industrial	Streptococcus	Haemophilus	0.82	4.788625162	0.000564	0.495556097	0.945015659	Pearson	0.4723531	rho	NA	0.7828637	0
+Buccal mucosa - Non-industrial	Streptococcus	Methanobrevibacter	0.79	4.226647502	0.00142	0.416077866	0.933189015	Pearson	0.3864854	rho	NA	0.7793042	0
+Buccal mucosa - Non-industrial	Streptococcus	Neisseria	0.65	2.854094104	0.0157	0.158115914	0.885144782	Pearson	1.6608058	rho	NA	0.533474	0
+Buccal mucosa - Non-industrial	Streptococcus	Porphyromonas	0.64	2.774420613	0.0181	0.140206987	0.881113906	Pearson	0.9090438	rho	NA	0.6033087	0
+Buccal mucosa - Non-industrial	Streptococcus	Prevotella	0.51	1.988039864	0.0723	-0.051425079	0.829994766	Pearson	1.5584451	rho	NA	0.4537495	0
+Buccal mucosa - Non-industrial	Streptococcus	Rothia	0.59	2.392932747	0.0357	0.050350505	0.859122134	Pearson	1.7993638	rho	NA	0.4826122	0
+Buccal mucosa - Non-industrial	Streptococcus	Veillonella	0.52	2.031101824	0.0671	-0.040344229	0.833417736	Pearson	2.1033256	rho	NA	0.4233392	0
+Buccal mucosa - Industrial	Streptococcus	Actinomyces	-0.33	-2.004016345	0.0531	-0.590505662	0.003929755	Pearson	3.0259294	rho	NA	-0.190915106	0
+Buccal mucosa - Industrial	Streptococcus	Capnocytophaga	-0.26	-1.590395773	0.121	-0.544593784	0.071585998	Pearson	1.7591075	rho	NA	-0.164402303	0
+Buccal mucosa - Industrial	Streptococcus	Corynebacterium	-0.064	-0.373687543	0.711	-0.384414214	0.270258657	Pearson	2.3050772	rho	NA	-0.086469356	0
+Buccal mucosa - Industrial	Streptococcus	Eikenella	-0.5	-3.401745012	0.00173	-0.714207294	-0.210168639	Pearson	1.4929143	rho	NA	-0.44334914	0
+Buccal mucosa - Industrial	Streptococcus	Fusobacterium	-0.23	-1.366295455	0.181	-0.517859771	0.10853191	Pearson	1.7279248	rho	NA	-0.076325218	0
+Buccal mucosa - Industrial	Streptococcus	Gemella	-0.055	-0.320857185	0.75	-0.37667977	0.278621671	Pearson	0.7364504	rho	NA	0.097214187	0
+Buccal mucosa - Industrial	Streptococcus	Granulicatella	-0.036	-0.21157503	0.834	-0.360502026	0.295798637	Pearson	0.6999308	rho	NA	-0.00512148	0
+Buccal mucosa - Industrial	Streptococcus	Haemophilus	-0.37	-2.318324084	0.0266	-0.622442182	-0.046576452	Pearson	0.9401511	rho	NA	-0.233781178	0
+Buccal mucosa - Industrial	Streptococcus	Methanobrevibacter	-0.15	-0.9101448	0.369	-0.459476524	0.183617983	Pearson	0.9557817	rho	NA	-0.094349444	0
+Buccal mucosa - Industrial	Streptococcus	Neisseria	-0.73	-6.286884894	0.000000366	-0.855625479	-0.533060841	Pearson	2.4686468	rho	NA	-0.530347018	0
+Buccal mucosa - Industrial	Streptococcus	Porphyromonas	0.36	2.239551833	0.0318	0.034014628	0.614674195	Pearson	0.5767458	rho	NA	0.325103278	0
+Buccal mucosa - Industrial	Streptococcus	Prevotella	0.04	0.231516647	0.818	-0.292677022	0.363471704	Pearson	1.4103433	rho	NA	0.034787379	0
+Buccal mucosa - Industrial	Streptococcus	Rothia	-0.73	-6.138192814	0.00000057	-0.850879719	-0.520452148	Pearson	3.1103654	rho	NA	-0.408730595	0
+Buccal mucosa - Industrial	Streptococcus	Veillonella	-0.066	-0.388258208	0.7	-0.386537226	0.267945699	Pearson	2.3474674	rho	NA	0.003459601	0
+Saliva - Non-industrial	Streptococcus	Actinomyces	0.73	72.54003539	0	0.712899088	0.739882759	Pearson	0.816851	rho	NA	0.8183763	0
+Saliva - Non-industrial	Streptococcus	Capnocytophaga	0.72	70.47027581	0	0.702471684	0.730281072	Pearson	0.9785917	rho	NA	0.8515331	0
+Saliva - Non-industrial	Streptococcus	Corynebacterium	0.59	50.55657012	0	0.574557125	0.611594788	Pearson	0.9467315	rho	NA	0.8263453	0
+Saliva - Non-industrial	Streptococcus	Eikenella	0.69	65.98568648	0	0.678215928	0.707903476	Pearson	0.7575988	rho	NA	0.8651106	0
+Saliva - Non-industrial	Streptococcus	Fusobacterium	0.75	77.3543989	0	0.735428186	0.760590372	Pearson	0.5779915	rho	NA	0.8927565	0
+Saliva - Non-industrial	Streptococcus	Gemella	0.86	117.8859086	0	0.856971231	0.871430407	Pearson	0.3720426	rho	NA	0.9274218	0
+Saliva - Non-industrial	Streptococcus	Granulicatella	0.92	164.7841417	0	0.918906389	0.927349326	Pearson	0.2255062	rho	NA	0.9580661	0
+Saliva - Non-industrial	Streptococcus	Haemophilus	0.8	90.13662604	0	0.785124502	0.806088416	Pearson	0.6978909	rho	NA	0.8871273	0
+Saliva - Non-industrial	Streptococcus	Methanobrevibacter	0.57	47.5014458	0	0.549775213	0.58840635	Pearson	0.7203155	rho	NA	0.8442708	0
+Saliva - Non-industrial	Streptococcus	Neisseria	0.72	70.52020008	0	0.70272872	0.730517886	Pearson	0.9177602	rho	NA	0.8474295	0
+Saliva - Non-industrial	Streptococcus	Porphyromonas	0.7	67.62513219	0	0.687356346	0.716343142	Pearson	0.623711	rho	NA	0.8779264	0
+Saliva - Non-industrial	Streptococcus	Prevotella	0.8	90.47083985	0	0.786252458	0.807118215	Pearson	0.6860947	rho	NA	0.8881179	0
+Saliva - Non-industrial	Streptococcus	Rothia	0.8	91.87106885	0	0.790893639	0.811354179	Pearson	0.5688593	rho	NA	0.9013649	0
+Saliva - Non-industrial	Streptococcus	Veillonella	0.84	104.3165908	0	0.826770368	0.844026194	Pearson	0.9000755	rho	NA	0.8734832	0
+Saliva - Industrial	Streptococcus	Actinomyces	0.19	0.616911519	0.551	-0.429638672	0.68959818	Pearson	1.0142587	rho	NA	0.26150768	0
+Saliva - Industrial	Streptococcus	Capnocytophaga	0.7	3.134449419	0.0106	0.218248212	0.910160452	Pearson	0.364429	rho	NA	0.67565351	0
+Saliva - Industrial	Streptococcus	Corynebacterium	-0.038	-0.121047969	0.906	-0.599002932	0.547673511	Pearson	0.9392894	rho	NA	0.06242841	0
+Saliva - Industrial	Streptococcus	Eikenella	0.16	0.5056332	0.624	-0.457464228	0.670990704	Pearson	1.3551868	rho	NA	0.29663359	0
+Saliva - Industrial	Streptococcus	Fusobacterium	0.8	4.168215685	0.00192	0.410423805	0.940546295	Pearson	0.3571275	rho	NA	0.73707094	0
+Saliva - Industrial	Streptococcus	Gemella	0.89	6.136564629	0.00011	0.64307979	0.968656532	Pearson	0.165247	rho	NA	0.86468743	0
+Saliva - Industrial	Streptococcus	Granulicatella	0.73	3.333417653	0.00757	0.259719248	0.91741459	Pearson	0.3135744	rho	NA	0.70080422	0
+Saliva - Industrial	Streptococcus	Haemophilus	0.53	1.955810639	0.079	-0.068605362	0.844864003	Pearson	0.4811541	rho	NA	0.57563527	0
+Saliva - Industrial	Streptococcus	Methanobrevibacter	0.72	3.250636969	0.00871	0.24272966	0.914494695	Pearson	0.2509374	rho	NA	0.61920056	0
+Saliva - Industrial	Streptococcus	Neisseria	-0.28	-0.916190889	0.381	-0.734826378	0.351806335	Pearson	6.3074665	rho	NA	-0.06222549	0
+Saliva - Industrial	Streptococcus	Porphyromonas	0.66	2.7423052	0.0208	0.130217102	0.893214236	Pearson	0.804965	rho	NA	0.58279089	0
+Saliva - Industrial	Streptococcus	Prevotella	0.75	3.628154598	0.00463	0.31716082	0.926788666	Pearson	0.5197842	rho	NA	0.67454806	0
+Saliva - Industrial	Streptococcus	Rothia	0.4	1.371457455	0.2	-0.228103092	0.791133802	Pearson	0.4955204	rho	NA	0.44226804	0
+Saliva - Industrial	Streptococcus	Veillonella	0.64	2.624885811	0.0254	0.102290483	0.887343726	Pearson	0.6360158	rho	NA	0.55405151	0
