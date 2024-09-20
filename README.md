@@ -11,7 +11,7 @@ Overview about the repository
 `00-documentation`: files with information about samples or _Streptococcus_ species that are used as input for scripts in `02-scripts`.  
 `02-scripts`: scripts for sample processing and analysis. Rmd files contain data analysis and supplemental figure scripts.  
 `05-results`: results from the data analysis that can stand alone, meaning they aren't strictly used as input for another step.  
-`06-publication`: publicaiton-asscociated files for figures and tables  
+`06-publication`: publication-asscociated files for figures and tables  
 
 Metadata for all samples included in the study are in `00-documentation/strep_clades_metadata.tsv`. Submission scripts and notes for all analyses are in `00-documentation/strep_clades_notes.tsv`.
 
